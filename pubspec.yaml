@@ -1,7 +1,7 @@
 name: flutter_any_download
 description: "A new Flutter plugin project."
 version: 1.1.1
-homepage: ""
+homepage: https://github.com/sanjaysharmajw/flutter_any_download
 
 environment:
   sdk: ^3.8.1
