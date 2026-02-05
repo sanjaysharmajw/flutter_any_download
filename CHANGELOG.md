@@ -1,3 +1,8 @@
-## 0.0.1
+## 1.1.1
 
-* TODO: Describe initial release.
+* Initial release
+* Cross-platform download support (iOS & Android)
+* Real-time progress notifications
+* Cancellation support
+* File opening integration
+* Comprehensive error handling
