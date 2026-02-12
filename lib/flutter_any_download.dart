@@ -1,5 +1,3 @@
-library flutter_any_download;
-
 import 'dart:async';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
@@ -7,14 +5,12 @@ import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:permission_handler/permission_handler.dart';
-import 'package:open_filex/open_filex.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 export 'src/download_status.dart';
 export 'src/download_task.dart';
 
 /// Simple, easy-to-use download manager for Flutter (iOS & Android)
-/// With FIXED iOS notification support
+/// With iOS notification support (tap-to-open removed)
 class FlutterAnyDownload {
   static final FlutterAnyDownload instance = FlutterAnyDownload._internal();
   factory FlutterAnyDownload() => instance;
@@ -62,34 +58,20 @@ class FlutterAnyDownload {
       android: AndroidInitializationSettings('@mipmap/ic_launcher'),
     );
 
-    await _notificationsPlugin.initialize(
-      initSettings,
-      onDidReceiveNotificationResponse: _onNotificationTap,
-    );
+    await _notificationsPlugin.initialize(initSettings);
   }
 
   Future<void> _initializeIOS() async {
-    // iOS ke liye PEHLE permission request karo
     await _requestIOSPermissions();
-
-    // Phir plugin initialize karo with onDidReceiveLocalNotification
     final DarwinInitializationSettings iOSSettings = DarwinInitializationSettings(
       requestAlertPermission: true,
       requestBadgePermission: true,
       requestSoundPermission: true,
-      onDidReceiveLocalNotification: (int id, String? title, String? body, String? payload) async {
-        if (kDebugMode) {
-          print('📱 iOS Legacy notification received: $title');
-        }
-      },
     );
 
     final initSettings = InitializationSettings(iOS: iOSSettings);
 
-    final bool? initialized = await _notificationsPlugin.initialize(
-      initSettings,
-      onDidReceiveNotificationResponse: _onNotificationTap,
-    );
+    final bool? initialized = await _notificationsPlugin.initialize(initSettings);
 
     if (kDebugMode) {
       print('✅ iOS Plugin initialized: $initialized');
@@ -190,28 +172,6 @@ class FlutterAnyDownload {
   // INTERNAL IMPLEMENTATION
   // ---------------------------------------------------------------------------
 
-  Future<void> _onNotificationTap(NotificationResponse response) async {
-    final path = response.payload;
-    if (path == null || path.isEmpty) return;
-
-    if (kDebugMode) {
-      print('🔔 Notification tapped: $path');
-    }
-
-    try {
-      if (Platform.isAndroid) {
-        await OpenFilex.open(path);
-      } else if (Platform.isIOS) {
-        final uri = Uri.file(path);
-        if (await canLaunchUrl(uri)) {
-          await launchUrl(uri, mode: LaunchMode.externalApplication);
-        }
-      }
-    } catch (e) {
-      if (kDebugMode) print('❌ Error opening file: $e');
-    }
-  }
-
   Future<bool> requestNotificationPermission() async {
     if (Platform.isAndroid) {
       try {
@@ -310,7 +270,7 @@ class FlutterAnyDownload {
             _lastNotificationProgress = progress;
 
             if (kDebugMode && progress % 25 == 0) {
-              print('📊 Progress: $progress%');
+              debugPrint('📊 Progress: $progress%');
             }
           }
 
@@ -324,6 +284,11 @@ class FlutterAnyDownload {
 
       // File write complete
       await Future.delayed(const Duration(milliseconds: 300));
+
+      // Verify file exists before showing completion
+      if (!await file.exists()) {
+        throw Exception('File was not saved properly');
+      }
 
       // Show completion notification
       if (showNotification) {
@@ -371,7 +336,7 @@ class FlutterAnyDownload {
   }
 
   // ---------------------------------------------------------------------------
-  // iOS FIXED NOTIFICATIONS
+  // NOTIFICATIONS (TAP-TO-OPEN REMOVED)
   // ---------------------------------------------------------------------------
 
   Future<void> _showProgressNotification(
@@ -400,7 +365,6 @@ class FlutterAnyDownload {
           ),
         );
       } else if (Platform.isIOS) {
-        // iOS ke liye proper progress notification
         details = NotificationDetails(
           iOS: DarwinNotificationDetails(
             presentAlert: true,
@@ -409,7 +373,6 @@ class FlutterAnyDownload {
             subtitle: 'Progress: $progress%',
             badgeNumber: progress,
             threadIdentifier: 'download_$_notificationCounter',
-            // iOS 15+ interruption level
             interruptionLevel: InterruptionLevel.passive,
           ),
         );
@@ -425,7 +388,7 @@ class FlutterAnyDownload {
       );
 
       if (kDebugMode && Platform.isIOS && progress % 25 == 0) {
-        print('🔔 iOS notification shown: $progress%');
+        debugPrint('🔔 iOS notification shown: $progress%');
       }
     } catch (e) {
       if (kDebugMode) print('❌ Progress notification error: $e');
@@ -437,10 +400,7 @@ class FlutterAnyDownload {
       String filePath,
       ) async {
     try {
-      // Cancel progress notification
       await _notificationsPlugin.cancel(_baseNotificationId);
-
-      // iOS ke liye delay zaruri hai
       if (Platform.isIOS) {
         await Future.delayed(const Duration(milliseconds: 500));
       } else {
@@ -467,18 +427,15 @@ class FlutterAnyDownload {
           ),
         );
       } else if (Platform.isIOS) {
-        // iOS ke liye HIGH PRIORITY completion notification
         details = NotificationDetails(
           iOS: DarwinNotificationDetails(
-            presentAlert: true,    // MUST be true
-            presentBadge: true,    // MUST be true
-            presentSound: true,    // Sound bajao
-            subtitle: 'Tap to open file',
+            presentAlert: true,
+            presentBadge: true,
+            presentSound: true,
+            subtitle: 'File saved successfully',
             badgeNumber: 1,
             threadIdentifier: 'download_complete_$_notificationCounter',
-            // iOS 15+ ke liye TIME SENSITIVE
             interruptionLevel: InterruptionLevel.timeSensitive,
-            // iOS attachment for better visibility (optional)
             attachments: [],
           ),
         );
@@ -486,27 +443,27 @@ class FlutterAnyDownload {
         return;
       }
 
-      // Different ID for completion notification
       final completionId = _baseNotificationId + 1000 + _notificationCounter;
 
+      // NO payload - tap-to-open removed
       await _notificationsPlugin.show(
         completionId,
         '✅ $filename',
-        'Download Complete! Tap to open',
+        'Download Complete!',
         details,
-        payload: filePath,
       );
 
       if (kDebugMode) {
         print('✅ Completion notification shown (ID: $completionId)');
+        print('📁 File saved at: $filePath');
         if (Platform.isIOS) {
           print('📱 iOS notification with sound and time-sensitive priority');
         }
       }
-    } catch (e) {
+    } catch (e, stackTrace) {
       if (kDebugMode) {
         print('❌ Completed notification error: $e');
-        print('Stack: ${StackTrace.current}');
+        print('Stack: $stackTrace');
       }
     }
   }
@@ -554,7 +511,6 @@ class FlutterAnyDownload {
       }
 
       final errorId = _baseNotificationId + 2000 + _notificationCounter;
-
       await _notificationsPlugin.show(
         errorId,
         '❌ Download Failed',

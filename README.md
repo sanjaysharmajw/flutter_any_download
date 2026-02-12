@@ -6,13 +6,13 @@ Easy-to-use download manager for Flutter with **working progress notifications**
 
 - ✅ **Simple API** - Just 3 lines to download a file
 - 📊 **Progress Notifications** - Built-in notification with download progress
-- 🔔 **iOS & Android Support** - Works seamlessly on both platforms (iOS notifications **100% fixed**)
+- 🔔 **iOS & Android Support** - Works seamlessly on both platforms (Android & iOS notifications)
 - 🎯 **Callbacks** - Track progress, completion, and errors
 - 🚫 **Cancellation** - Cancel downloads anytime
-- 📱 **Tap to Open** - Tap notification to open downloaded file
 - 🔕 **Silent Downloads** - Download without notifications
 - ⚡ **Multiple Downloads** - Download multiple files simultaneously
 - 🍎 **iOS Foreground Notifications** - Shows notifications even when app is open
+- 📁 **File Path Access** - Get downloaded file path via callbacks
 
 ## 📦 Installation
 
@@ -20,16 +20,16 @@ Add to your `pubspec.yaml`:
 
 ```yaml
 dependencies:
-  flutter_any_download: ^1.0.0
-  
-  # Required dependencies
-  http: ^1.1.0
-  path_provider: ^2.1.0
-  flutter_local_notifications: ^17.0.0
-  permission_handler: ^11.0.0
-  open_filex: ^4.3.0
-  url_launcher: ^6.2.0
+   flutter_any_download: ^1.1.3
+
+   # Required dependencies
+   http: ^1.1.0
+   path_provider: ^2.1.0
+   flutter_local_notifications: ^17.0.0
+   permission_handler: ^11.0.0
 ```
+
+**Note:** This version does not include tap-to-open functionality for a simpler, more focused implementation.
 
 ## 🚀 Quick Start
 
@@ -37,15 +37,15 @@ dependencies:
 
 ```dart
 void main() async {
-  WidgetsFlutterBinding.ensureInitialized();
-  
-  // Initialize once at app startup
-  await FlutterAnyDownload.instance.initialize();
-  
-  // ✅ IMPORTANT FOR iOS: Request permission at startup
-  await FlutterAnyDownload.instance.requestPermission();
-  
-  runApp(MyApp());
+   WidgetsFlutterBinding.ensureInitialized();
+
+   // Initialize once at app startup
+   await FlutterAnyDownload.instance.initialize();
+
+   // ✅ IMPORTANT FOR iOS: Request permission at startup
+   await FlutterAnyDownload.instance.requestPermission();
+
+   runApp(MyApp());
 }
 ```
 
@@ -54,14 +54,15 @@ void main() async {
 ```dart
 // Simple download with notification
 final result = await FlutterAnyDownload.instance.download(
-  url: 'https://example.com/file.pdf',
-  filename: 'document.pdf',
+url: 'https://example.com/file.pdf',
+filename: 'document.pdf',
 );
 
 if (result.success) {
-  print('Downloaded to: ${result.filePath}');
+print('Downloaded to: ${result.filePath}');
+// Use the file path to access the file
 } else {
-  print('Error: ${result.message}');
+print('Error: ${result.message}');
 }
 ```
 
@@ -73,18 +74,23 @@ That's it! 🎉
 
 ```dart
 ElevatedButton(
-  onPressed: () async {
-    final result = await FlutterAnyDownload.instance.download(
-      url: 'https://example.com/sample.pdf',
-      filename: 'my_file.pdf',
-    );
-    
-    if (result.success) {
-      // File downloaded successfully
-      print('File saved at: ${result.filePath}');
-    }
-  },
-  child: Text('Download File'),
+onPressed: () async {
+final result = await FlutterAnyDownload.instance.download(
+url: 'https://example.com/sample.pdf',
+filename: 'my_file.pdf',
+);
+
+if (result.success) {
+// File downloaded successfully
+print('File saved at: ${result.filePath}');
+
+// Show success message
+ScaffoldMessenger.of(context).showSnackBar(
+SnackBar(content: Text('Downloaded to: ${result.filePath}')),
+);
+}
+},
+child: Text('Download File'),
 );
 ```
 
@@ -94,20 +100,21 @@ ElevatedButton(
 double progress = 0.0;
 
 await FlutterAnyDownload.instance.download(
-  url: 'https://example.com/large_file.zip',
-  filename: 'archive.zip',
-  onProgress: (downloaded, total) {
-    setState(() {
-      progress = downloaded / total;
-      print('Progress: ${(progress * 100).toInt()}%');
-    });
-  },
-  onComplete: (filePath) {
-    print('Download completed: $filePath');
-  },
-  onError: (error) {
-    print('Download failed: $error');
-  },
+url: 'https://example.com/large_file.zip',
+filename: 'archive.zip',
+onProgress: (downloaded, total) {
+setState(() {
+progress = downloaded / total;
+print('Progress: ${(progress * 100).toInt()}%');
+});
+},
+onComplete: (filePath) {
+print('Download completed: $filePath');
+// File is ready to use at filePath
+},
+onError: (error) {
+print('Download failed: $error');
+},
 );
 ```
 
@@ -116,28 +123,38 @@ await FlutterAnyDownload.instance.download(
 ```dart
 // Useful for downloading app data, configs, etc.
 final result = await FlutterAnyDownload.instance.downloadSilent(
-  url: 'https://example.com/config.json',
-  filename: 'config.json',
-  saveToDownloads: false, // Save to app directory
+url: 'https://example.com/config.json',
+filename: 'config.json',
+saveToDownloads: false, // Save to app directory
 );
+
+if (result.success) {
+// Use the downloaded file
+final file = File(result.filePath!);
+final contents = await file.readAsString();
+print('Config: $contents');
+}
 ```
 
 ### Download Multiple Files
 
 ```dart
 Future<void> downloadMultipleFiles() async {
-  final urls = [
-    'https://example.com/file1.pdf',
-    'https://example.com/file2.pdf',
-    'https://example.com/file3.pdf',
-  ];
+   final urls = [
+      'https://example.com/file1.pdf',
+      'https://example.com/file2.pdf',
+      'https://example.com/file3.pdf',
+   ];
 
-  for (int i = 0; i < urls.length; i++) {
-    await FlutterAnyDownload.instance.download(
-      url: urls[i],
-      filename: 'file${i + 1}.pdf',
-    );
-  }
+   for (int i = 0; i < urls.length; i++) {
+      final result = await FlutterAnyDownload.instance.download(
+         url: urls[i],
+         filename: 'file${i + 1}.pdf',
+         onComplete: (filePath) {
+            print('Downloaded ${i + 1}/3: $filePath');
+         },
+      );
+   }
 }
 ```
 
@@ -151,20 +168,20 @@ bool enabled = await FlutterAnyDownload.instance.areNotificationsEnabled();
 bool granted = await FlutterAnyDownload.instance.requestPermission();
 
 if (!granted) {
-  // Show dialog explaining why permission is needed
-  showDialog(
-    context: context,
-    builder: (context) => AlertDialog(
-      title: Text('Permission Required'),
-      content: Text('Please enable notifications to see download progress.'),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: Text('OK'),
-        ),
-      ],
-    ),
-  );
+// Show dialog explaining why permission is needed
+showDialog(
+context: context,
+builder: (context) => AlertDialog(
+title: Text('Permission Required'),
+content: Text('Please enable notifications to see download progress.'),
+actions: [
+TextButton(
+onPressed: () => Navigator.pop(context),
+child: Text('OK'),
+),
+],
+),
+);
 }
 ```
 
@@ -179,54 +196,69 @@ await FlutterAnyDownload.instance.cancelAll();
 
 ```dart
 class DownloadWidget extends StatefulWidget {
-  @override
-  State<DownloadWidget> createState() => _DownloadWidgetState();
+   @override
+   State<DownloadWidget> createState() => _DownloadWidgetState();
 }
 
 class _DownloadWidgetState extends State<DownloadWidget> {
-  double _progress = 0.0;
-  bool _isDownloading = false;
-  String _status = 'Ready';
+   double _progress = 0.0;
+   bool _isDownloading = false;
+   String _status = 'Ready';
+   String? _filePath;
 
-  Future<void> _download() async {
-    setState(() {
-      _isDownloading = true;
-      _status = 'Downloading...';
-    });
+   Future<void> _download() async {
+      setState(() {
+         _isDownloading = true;
+         _status = 'Downloading...';
+         _filePath = null;
+      });
 
-    final result = await FlutterAnyDownload.instance.download(
-      url: 'https://example.com/file.zip',
-      filename: 'download.zip',
-      onProgress: (downloaded, total) {
-        setState(() {
-          _progress = downloaded / total;
-          _status = '${(downloaded / 1024 / 1024).toStringAsFixed(2)} MB / ${(total / 1024 / 1024).toStringAsFixed(2)} MB';
-        });
-      },
-    );
+      final result = await FlutterAnyDownload.instance.download(
+         url: 'https://example.com/file.zip',
+         filename: 'download.zip',
+         onProgress: (downloaded, total) {
+            setState(() {
+               _progress = downloaded / total;
+               _status = '${(downloaded / 1024 / 1024).toStringAsFixed(2)} MB / ${(total / 1024 / 1024).toStringAsFixed(2)} MB';
+            });
+         },
+         onComplete: (filePath) {
+            setState(() {
+               _filePath = filePath;
+            });
+         },
+      );
 
-    setState(() {
-      _isDownloading = false;
-      _status = result.success ? 'Complete! ✅' : 'Failed ❌';
-    });
-  }
+      setState(() {
+         _isDownloading = false;
+         _status = result.success ? 'Complete! ✅' : 'Failed ❌';
+         if (result.success) {
+            _filePath = result.filePath;
+         }
+      });
+   }
 
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: [
-        LinearProgressIndicator(value: _progress),
-        SizedBox(height: 20),
-        Text('${(_progress * 100).toInt()}%'),
-        Text(_status),
-        SizedBox(height: 20),
-        ElevatedButton(
-          onPressed: _isDownloading ? null : _download,
-          child: Text('Download'),
-        ),
-      ],
-    );
-  }
+   @override
+   Widget build(BuildContext context) {
+      return Column(
+         children: [
+            LinearProgressIndicator(value: _progress),
+            SizedBox(height: 20),
+            Text('${(_progress * 100).toInt()}%'),
+            Text(_status),
+            if (_filePath != null) ...[
+               SizedBox(height: 10),
+               Text('Saved at:', style: TextStyle(fontWeight: FontWeight.bold)),
+               SelectableText(_filePath!, style: TextStyle(fontSize: 12)),
+            ],
+            SizedBox(height: 20),
+            ElevatedButton(
+               onPressed: _isDownloading ? null : _download,
+               child: Text('Download'),
+            ),
+         ],
+      );
+   }
 }
 ```
 
@@ -238,21 +270,21 @@ class _DownloadWidgetState extends State<DownloadWidget> {
 
 ```xml
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-    <!-- Internet permission -->
-    <uses-permission android:name="android.permission.INTERNET" />
-    
-    <!-- Notification permission (Android 13+) -->
-    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
-    
-    <!-- Storage permissions -->
-    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"
-                     android:maxSdkVersion="32" />
-    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"
-                     android:maxSdkVersion="32" />
-    
-    <application>
-        <!-- Your app configuration -->
-    </application>
+   <!-- Internet permission -->
+   <uses-permission android:name="android.permission.INTERNET" />
+
+   <!-- Notification permission (Android 13+) -->
+   <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
+
+   <!-- Storage permissions -->
+   <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"
+           android:maxSdkVersion="32" />
+   <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"
+           android:maxSdkVersion="32" />
+
+   <application>
+      <!-- Your app configuration -->
+   </application>
 </manifest>
 ```
 
@@ -279,36 +311,36 @@ Add these keys to enable notifications and file access:
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
-<dict>
-    <!-- Your existing keys... -->
-    
-    <!-- ✅ CRITICAL: Notification permissions -->
-    <key>UIBackgroundModes</key>
-    <array>
-        <string>fetch</string>
-        <string>remote-notification</string>
-    </array>
-    
-    <key>NSUserNotificationAlertStyle</key>
-    <string>alert</string>
-    
-    <!-- ✅ File access permissions -->
-    <key>NSPhotoLibraryUsageDescription</key>
-    <string>We need access to save your downloaded files</string>
-    
-    <key>NSPhotoLibraryAddUsageDescription</key>
-    <string>We need permission to save downloaded files</string>
-    
-    <!-- ✅ Document support -->
-    <key>UISupportsDocumentBrowser</key>
-    <true/>
-    
-    <key>UIFileSharingEnabled</key>
-    <true/>
-    
-    <key>LSSupportsOpeningDocumentsInPlace</key>
-    <true/>
-</dict>
+   <dict>
+      <!-- Your existing keys... -->
+
+      <!-- CRITICAL: Notification permissions -->
+      <key>UIBackgroundModes</key>
+      <array>
+         <string>fetch</string>
+         <string>remote-notification</string>
+      </array>
+
+      <key>NSUserNotificationAlertStyle</key>
+      <string>alert</string>
+
+      <!-- File access permissions -->
+      <key>NSPhotoLibraryUsageDescription</key>
+      <string>We need access to save your downloaded files</string>
+
+      <key>NSPhotoLibraryAddUsageDescription</key>
+      <string>We need permission to save downloaded files</string>
+
+      <!-- Document support -->
+      <key>UISupportsDocumentBrowser</key>
+      <true/>
+
+      <key>UIFileSharingEnabled</key>
+      <true/>
+
+      <key>LSSupportsOpeningDocumentsInPlace</key>
+      <true/>
+   </dict>
 </plist>
 ```
 
@@ -328,7 +360,7 @@ import UserNotifications
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
   ) -> Bool {
     
-    // ✅ CRITICAL: Set notification center delegate
+    // CRITICAL: Set notification center delegate
     if #available(iOS 10.0, *) {
       UNUserNotificationCenter.current().delegate = self as UNUserNotificationCenterDelegate
     }
@@ -337,7 +369,7 @@ import UserNotifications
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
   }
   
-  // ✅ CRITICAL: Handle foreground notifications
+  //CRITICAL: Handle foreground notifications
   override func userNotificationCenter(
     _ center: UNUserNotificationCenter,
     willPresent notification: UNNotification,
@@ -348,15 +380,6 @@ import UserNotifications
     } else {
       completionHandler([.alert, .sound, .badge])
     }
-  }
-  
-  // ✅ Handle notification tap
-  override func userNotificationCenter(
-    _ center: UNUserNotificationCenter,
-    didReceive response: UNNotificationResponse,
-    withCompletionHandler completionHandler: @escaping () -> Void
-  ) {
-    completionHandler()
   }
 }
 ```
@@ -415,7 +438,7 @@ Future<DownloadResult> download({
   bool showNotification = true,     // Show progress notification
   bool saveToDownloads = true,      // Save to Downloads folder (Android)
   ProgressCallback? onProgress,     // Progress callback
-  SuccessCallback? onComplete,      // Success callback
+  SuccessCallback? onComplete,      // Success callback with file path
   ErrorCallback? onError,           // Error callback
 })
 ```
@@ -468,6 +491,60 @@ class DownloadResult {
   final String? filePath;    // Path to downloaded file (null if failed)
   final String message;      // Human-readable message
 }
+```
+
+## 📁 Accessing Downloaded Files
+
+Since this version focuses on notifications only (without tap-to-open), you can access downloaded files through:
+
+### Option 1: Via Callbacks
+
+```dart
+await FlutterAnyDownload.instance.download(
+  url: 'https://example.com/file.pdf',
+  filename: 'document.pdf',
+  onComplete: (filePath) {
+    print('File available at: $filePath');
+    
+    // Use the file as needed
+    final file = File(filePath);
+    // Process file...
+  },
+);
+```
+
+### Option 2: Via DownloadResult
+
+```dart
+final result = await FlutterAnyDownload.instance.download(
+  url: 'https://example.com/file.pdf',
+  filename: 'document.pdf',
+);
+
+if (result.success && result.filePath != null) {
+  final file = File(result.filePath!);
+  // Use file...
+}
+```
+
+### Option 3: Implement Custom File Opening
+
+If you need to open files, you can add your own logic:
+
+```dart
+// Add to pubspec.yaml if needed:
+// open_filex: ^4.3.0
+
+import 'package:open_filex/open_filex.dart';
+
+final result = await FlutterAnyDownload.instance.download(
+  url: 'https://example.com/file.pdf',
+  filename: 'document.pdf',
+  onComplete: (filePath) async {
+    // Open the file with default app
+    await OpenFilex.open(filePath);
+  },
+);
 ```
 
 ## 🔧 Advanced Usage
@@ -533,7 +610,7 @@ targetSdkVersion 34
 ```
 
 3. Check device notification settings:
-    - Settings → Apps → Your App → Notifications → ON
+   - Settings → Apps → Your App → Notifications → ON
 
 ### Notifications Not Showing on iOS
 
@@ -563,9 +640,9 @@ void main() async {
 5. ✅ **Test on REAL DEVICE** (not simulator - notifications don't work properly on simulator)
 
 6. ✅ **Check device settings**:
-    - Settings → Your App → Notifications → Allow Notifications: ON
-    - Settings → Your App → Notifications → Sounds: ON
-    - Settings → Your App → Notifications → Badges: ON
+   - Settings → Your App → Notifications → Allow Notifications: ON
+   - Settings → Your App → Notifications → Sounds: ON
+   - Settings → Your App → Notifications → Badges: ON
 
 7. ✅ **Check Do Not Disturb** is OFF
 
@@ -599,8 +676,9 @@ print('File saved at: ${result.filePath}');
 5. **Cancel When Needed**: Call `cancelAll()` when user navigates away
 6. **Test on Real Devices**: Notifications behave differently on simulators (especially iOS)
 7. **iOS Clean Builds**: After changing Info.plist or AppDelegate.swift, always do a clean build
+8. **Store File Paths**: Save file paths from callbacks for later use
 
-## 🍎 iOS Notification Features
+## iOS Notification Features
 
 ### What's Fixed in This Version:
 
@@ -617,13 +695,13 @@ print('File saved at: ${result.filePath}');
 
 - **Progress Notifications**: Updates every 5% (reduces spam)
 - **Completion Notification**: Shows with sound and high priority
-- **Tap to Open**: Tap notification to open downloaded file
 - **Badge Count**: Shows download percentage as badge
 - **Foreground Display**: Shows notifications even when app is in foreground
+- **No Tap Action**: Notifications are informational only (file path provided via callbacks)
 
 ## 🚨 Common Mistakes to Avoid
 
-### ❌ Wrong - Forgetting Permission Request
+### Wrong - Forgetting Permission Request
 ```dart
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -633,7 +711,7 @@ void main() async {
 }
 ```
 
-### ✅ Correct - Request Permission
+### Correct - Request Permission
 ```dart
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -643,42 +721,63 @@ void main() async {
 }
 ```
 
-### ❌ Wrong - Testing on iOS Simulator
+### Wrong - Not Storing File Path
+```dart
+await FlutterAnyDownload.instance.download(
+  url: url,
+  filename: filename,
+);
+// How do I access the file now? 🤔
+```
+
+### Correct - Store File Path
+```dart
+String? downloadedFilePath;
+
+final result = await FlutterAnyDownload.instance.download(
+  url: url,
+  filename: filename,
+  onComplete: (filePath) {
+    downloadedFilePath = filePath;
+    // Now you can use it!
+  },
+);
+
+// Or use result.filePath
+if (result.success) {
+  downloadedFilePath = result.filePath;
+}
+```
+
+### Wrong - Testing on iOS Simulator
 ```
 iOS Simulator me notifications properly work nahi karte
 ```
 
-### ✅ Correct - Test on Real Device
+### Correct - Test on Real Device
 ```
 Always test on real iOS device for notifications
 ```
 
-### ❌ Wrong - Not Doing Clean Build
+### Wrong - Not Doing Clean Build
 ```
 Info.plist or AppDelegate change karne ke baad clean build nahi kiya
 ```
 
-### ✅ Correct - Always Clean Build
+### Correct - Always Clean Build
 ```bash
 cd ios && rm -rf Pods Podfile.lock && cd ..
 flutter clean && flutter pub get
 cd ios && pod install && cd ..
 ```
 
-## 📚 Additional Resources
-
-- **Complete Working Example**: See `working_example_ios.dart` for a full implementation
-- **iOS Setup Guide**: See `iOS_NOTIFICATION_FIX.md` for detailed iOS setup
-- **Quick Reference**: See `QUICK_REFERENCE.md` for common patterns
-- **Setup Summary**: See `SETUP_SUMMARY.md` for 5-minute setup guide
-
-## 🤝 Contributing
-
-Contributions are welcome! Please feel free to submit a Pull Request.
-
-## 📄 License
-
-MIT License - see LICENSE file for details
+### What's Included:
+- Download progress notifications
+- Download completion notifications
+- Error notifications
+- File path access via callbacks and `DownloadResult`
+- iOS & Android support
+- All core download functionality
 
 ## 🙏 Credits
 
@@ -687,26 +786,10 @@ Built with:
 - [flutter_local_notifications](https://pub.dev/packages/flutter_local_notifications) - Local notifications
 - [path_provider](https://pub.dev/packages/path_provider) - File paths
 - [permission_handler](https://pub.dev/packages/permission_handler) - Permission management
-- [open_filex](https://pub.dev/packages/open_filex) - File opening
-- [url_launcher](https://pub.dev/packages/url_launcher) - URL launching
-
-## 📞 Support
-
-If you have any questions or issues:
-1. Check the troubleshooting section above
-2. See `iOS_NOTIFICATION_FIX.md` for iOS-specific issues
-3. Create an issue on GitHub with:
-    - Platform (iOS/Android)
-    - Flutter version
-    - Error logs from Xcode/Android Studio
-    - Steps to reproduce
-
-## ⭐ Star This Repository
 
 If this package helped you, please give it a ⭐ on GitHub!
-
 ---
 
 **Made with ❤️ for Flutter developers**
 
-**iOS Notifications 100% Fixed! 🎉**
+**Simple, Clean, and Focused on Downloads + Notifications!**

@@ -8,6 +8,8 @@ import UserNotifications
       _ application: UIApplication,
       didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
   ) -> Bool {
+
+    // ✅ CRITICAL: Set notification center delegate
     if #available(iOS 10.0, *) {
       UNUserNotificationCenter.current().delegate = self as UNUserNotificationCenterDelegate
     }
@@ -16,6 +18,7 @@ import UserNotifications
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
   }
 
+  // ✅ CRITICAL: Handle foreground notifications
   override func userNotificationCenter(
       _ center: UNUserNotificationCenter,
       willPresent notification: UNNotification,
@@ -26,13 +29,5 @@ import UserNotifications
     } else {
       completionHandler([.alert, .sound, .badge])
     }
-  }
-
-  override func userNotificationCenter(
-      _ center: UNUserNotificationCenter,
-      didReceive response: UNNotificationResponse,
-      withCompletionHandler completionHandler: @escaping () -> Void
-  ) {
-    completionHandler()
   }
 }
