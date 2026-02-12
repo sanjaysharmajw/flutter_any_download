@@ -1,28 +1,17 @@
-// =============================================================================
-// FLUTTER ANY DOWNLOAD - BEAUTIFUL UI EXAMPLES
-// =============================================================================
-
 import 'package:flutter/material.dart';
 import 'package:flutter_any_download/flutter_any_download.dart';
 
-// =============================================================================
-// MAIN APP WITH BEAUTIFUL THEME
-// =============================================================================
-
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-
   // Initialize the download manager
   await FlutterAnyDownload.instance.initialize();
-
   // Request permission for iOS
   await FlutterAnyDownload.instance.requestPermission();
-
   runApp(const MyApp());
 }
 
 class MyApp extends StatelessWidget {
-  const MyApp({Key? key}) : super(key: key);
+  const MyApp({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -56,13 +45,8 @@ class MyApp extends StatelessWidget {
   }
 }
 
-// =============================================================================
-// BEAUTIFUL HOME PAGE WITH GRID LAYOUT
-// =============================================================================
-
 class DownloadHomePage extends StatelessWidget {
-  const DownloadHomePage({Key? key}) : super(key: key);
-
+  const DownloadHomePage({super.key});
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -72,8 +56,8 @@ class DownloadHomePage extends StatelessWidget {
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
             colors: [
-              const Color(0xFF6366F1).withOpacity(0.1),
-              const Color(0xFFA855F7).withOpacity(0.1),
+              const Color(0xFF6366F1).withValues(alpha: 0.1),
+              const Color(0xFFA855F7).withValues(alpha:0.1),
             ],
           ),
         ),
@@ -92,7 +76,7 @@ class DownloadHomePage extends StatelessWidget {
                         shape: BoxShape.circle,
                         boxShadow: [
                           BoxShadow(
-                            color: const Color(0xFF6366F1).withOpacity(0.3),
+                            color: const Color(0xFF6366F1)..withValues(alpha:0.3),
                             blurRadius: 20,
                             offset: const Offset(0, 10),
                           ),
@@ -123,8 +107,6 @@ class DownloadHomePage extends StatelessWidget {
                   ],
                 ),
               ),
-
-              // Grid of examples
               Expanded(
                 child: GridView.count(
                   crossAxisCount: 2,
@@ -215,7 +197,6 @@ class DownloadHomePage extends StatelessWidget {
   }
 }
 
-// Feature Card Widget
 class _FeatureCard extends StatelessWidget {
   final String title;
   final String subtitle;
@@ -255,7 +236,7 @@ class _FeatureCard extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.3),
+                    color: Colors.white..withValues(alpha:0.3),
                     shape: BoxShape.circle,
                   ),
                   child: Icon(
@@ -278,7 +259,7 @@ class _FeatureCard extends StatelessWidget {
                   subtitle,
                   style: TextStyle(
                     fontSize: 12,
-                    color: Colors.white.withOpacity(0.9),
+                    color: Colors.white..withValues(alpha:0.9),
                   ),
                 ),
               ],
@@ -290,13 +271,8 @@ class _FeatureCard extends StatelessWidget {
   }
 }
 
-// =============================================================================
-// SIMPLE DOWNLOAD PAGE
-// =============================================================================
-
 class SimpleDownloadPage extends StatefulWidget {
-  const SimpleDownloadPage({Key? key}) : super(key: key);
-
+  const SimpleDownloadPage({super.key});
   @override
   State<SimpleDownloadPage> createState() => _SimpleDownloadPageState();
 }
@@ -343,7 +319,7 @@ class _SimpleDownloadPageState extends State<SimpleDownloadPage> {
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
             colors: [
-              const Color(0xFF6366F1).withOpacity(0.1),
+              const Color(0xFF6366F1)..withValues(alpha:0.1),
               Colors.white,
             ],
           ),
@@ -369,8 +345,8 @@ class _SimpleDownloadPageState extends State<SimpleDownloadPage> {
                             padding: const EdgeInsets.all(24),
                             decoration: BoxDecoration(
                               color: _isSuccess
-                                  ? Colors.green.withOpacity(0.1)
-                                  : const Color(0xFF6366F1).withOpacity(0.1),
+                                  ? Colors.green.withValues(alpha:0.1)
+                                  : const Color(0xFF6366F1)..withValues(alpha:0.1),
                               shape: BoxShape.circle,
                             ),
                             child: Icon(
@@ -427,13 +403,8 @@ class _SimpleDownloadPageState extends State<SimpleDownloadPage> {
   }
 }
 
-// =============================================================================
-// PROGRESS DOWNLOAD PAGE
-// =============================================================================
-
 class ProgressDownloadPage extends StatefulWidget {
-  const ProgressDownloadPage({Key? key}) : super(key: key);
-
+  const ProgressDownloadPage({super.key});
   @override
   State<ProgressDownloadPage> createState() => _ProgressDownloadPageState();
 }
@@ -508,7 +479,7 @@ class _ProgressDownloadPageState extends State<ProgressDownloadPage>
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
             colors: [
-              const Color(0xFFEC4899).withOpacity(0.1),
+              const Color(0xFFEC4899)..withValues(alpha:0.1),
               Colors.white,
             ],
           ),
@@ -609,13 +580,8 @@ class _ProgressDownloadPageState extends State<ProgressDownloadPage>
   }
 }
 
-// =============================================================================
-// SILENT DOWNLOAD PAGE
-// =============================================================================
-
 class SilentDownloadPage extends StatelessWidget {
-  const SilentDownloadPage({Key? key}) : super(key: key);
-
+  const SilentDownloadPage({super.key});
   Future<void> _downloadSilently(BuildContext context) async {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -630,15 +596,12 @@ class SilentDownloadPage extends StatelessWidget {
         backgroundColor: const Color(0xFF10B981),
       ),
     );
-
     final result = await FlutterAnyDownload.instance.downloadSilent(
       url: 'https://jsonplaceholder.typicode.com/posts',
       filename: 'data_${DateTime.now().millisecondsSinceEpoch}.json',
       saveToDownloads: false,
     );
-
     if (!context.mounted) return;
-
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Row(
@@ -674,7 +637,7 @@ class SilentDownloadPage extends StatelessWidget {
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
             colors: [
-              const Color(0xFF10B981).withOpacity(0.1),
+              const Color(0xFF10B981).withValues(alpha:0.1),
               Colors.white,
             ],
           ),
@@ -692,7 +655,7 @@ class SilentDownloadPage extends StatelessWidget {
                     Container(
                       padding: const EdgeInsets.all(24),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF10B981).withOpacity(0.1),
+                        color: const Color(0xFF10B981)..withValues(alpha:0.1),
                         shape: BoxShape.circle,
                       ),
                       child: const Icon(
@@ -743,13 +706,8 @@ class SilentDownloadPage extends StatelessWidget {
   }
 }
 
-// =============================================================================
-// MULTIPLE DOWNLOADS PAGE
-// =============================================================================
-
 class MultipleDownloadsPage extends StatefulWidget {
-  const MultipleDownloadsPage({Key? key}) : super(key: key);
-
+  const MultipleDownloadsPage({super.key});
   @override
   State<MultipleDownloadsPage> createState() => _MultipleDownloadsPageState();
 }
@@ -826,7 +784,7 @@ class _MultipleDownloadsPageState extends State<MultipleDownloadsPage> {
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
             colors: [
-              const Color(0xFFF59E0B).withOpacity(0.1),
+              const Color(0xFFF59E0B)..withValues(alpha:0.1),
               Colors.white,
             ],
           ),
@@ -891,8 +849,8 @@ class _MultipleDownloadsPageState extends State<MultipleDownloadsPage> {
                                 padding: const EdgeInsets.all(8),
                                 decoration: BoxDecoration(
                                   color: item.isComplete
-                                      ? Colors.green.withOpacity(0.1)
-                                      : const Color(0xFFF59E0B).withOpacity(0.1),
+                                      ? Colors.green.withValues(alpha:0.1)
+                                      : const Color(0xFFF59E0B).withValues(alpha:0.1),
                                   borderRadius: BorderRadius.circular(8),
                                 ),
                                 child: Icon(
@@ -970,12 +928,8 @@ class DownloadItem {
   });
 }
 
-// =============================================================================
-// PERMISSION PAGE
-// =============================================================================
-
 class PermissionPage extends StatefulWidget {
-  const PermissionPage({Key? key}) : super(key: key);
+  const PermissionPage({super.key});
 
   @override
   State<PermissionPage> createState() => _PermissionPageState();
@@ -1038,7 +992,7 @@ class _PermissionPageState extends State<PermissionPage> {
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
             colors: [
-              const Color(0xFF3B82F6).withOpacity(0.1),
+              const Color(0xFF3B82F6).withValues(alpha: 0.1),
               Colors.white,
             ],
           ),
@@ -1057,8 +1011,8 @@ class _PermissionPageState extends State<PermissionPage> {
                       padding: const EdgeInsets.all(24),
                       decoration: BoxDecoration(
                         color: (_permissionGranted ?? false)
-                            ? Colors.green.withOpacity(0.1)
-                            : const Color(0xFF3B82F6).withOpacity(0.1),
+                            ? Colors.green.withValues(alpha:0.1)
+                            : const Color(0xFF3B82F6).withValues(alpha:0.1),
                         shape: BoxShape.circle,
                       ),
                       child: Icon(
@@ -1121,12 +1075,8 @@ class _PermissionPageState extends State<PermissionPage> {
   }
 }
 
-// =============================================================================
-// FILE TYPES PAGE
-// =============================================================================
-
 class FileTypesPage extends StatelessWidget {
-  const FileTypesPage({Key? key}) : super(key: key);
+  const FileTypesPage({super.key});
 
   Future<void> _downloadFile(
       BuildContext context,
@@ -1185,7 +1135,7 @@ class FileTypesPage extends StatelessWidget {
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
             colors: [
-              const Color(0xFFEF4444).withOpacity(0.1),
+              const Color(0xFFEF4444).withValues(alpha:0.1),
               Colors.white,
             ],
           ),
@@ -1277,7 +1227,7 @@ class _FileTypeCard extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: color.withOpacity(0.1),
+                  color: color.withValues(alpha:0.1),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Icon(
