@@ -1,3 +1,5 @@
+![Logo](https://raw.githubusercontent.com/sanjaysharmajw/flutter_any_download/refs/heads/main/screenshots/download.jpeg?token=GHSAT0AAAAAADSKSBILTOXDXSJ2SCD65MLG2MNTOGQ)
+
 # Flutter Any Download 📥
 
 Easy-to-use download manager for Flutter with **working progress notifications** for both iOS and Android.
@@ -20,7 +22,7 @@ Add to your `pubspec.yaml`:
 
 ```yaml
 dependencies:
-   flutter_any_download: ^1.1.3
+   flutter_any_download: ^1.1.4
 
    # Required dependencies
    http: ^1.1.0
@@ -355,32 +357,32 @@ import UserNotifications
 
 @UIApplicationMain
 @objc class AppDelegate: FlutterAppDelegate {
-  override func application(
-    _ application: UIApplication,
-    didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
-  ) -> Bool {
-    
-    // CRITICAL: Set notification center delegate
-    if #available(iOS 10.0, *) {
-      UNUserNotificationCenter.current().delegate = self as UNUserNotificationCenterDelegate
-    }
-    
-    GeneratedPluginRegistrant.register(with: self)
-    return super.application(application, didFinishLaunchingWithOptions: launchOptions)
-  }
-  
-  //CRITICAL: Handle foreground notifications
-  override func userNotificationCenter(
-    _ center: UNUserNotificationCenter,
-    willPresent notification: UNNotification,
-    withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void
-  ) {
-    if #available(iOS 14.0, *) {
-      completionHandler([.banner, .sound, .badge])
-    } else {
-      completionHandler([.alert, .sound, .badge])
-    }
-  }
+   override func application(
+           _ application: UIApplication,
+           didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
+   ) -> Bool {
+
+      // CRITICAL: Set notification center delegate
+      if #available(iOS 10.0, *) {
+         UNUserNotificationCenter.current().delegate = self as UNUserNotificationCenterDelegate
+      }
+
+      GeneratedPluginRegistrant.register(with: self)
+      return super.application(application, didFinishLaunchingWithOptions: launchOptions)
+   }
+
+   //CRITICAL: Handle foreground notifications
+   override func userNotificationCenter(
+           _ center: UNUserNotificationCenter,
+           willPresent notification: UNNotification,
+           withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void
+   ) {
+      if #available(iOS 14.0, *) {
+         completionHandler([.banner, .sound, .badge])
+      } else {
+         completionHandler([.alert, .sound, .badge])
+      }
+   }
 }
 ```
 
@@ -433,13 +435,13 @@ Download a file with full control over options.
 
 ```dart
 Future<DownloadResult> download({
-  required String url,              // File URL
-  required String filename,         // Save as filename
-  bool showNotification = true,     // Show progress notification
-  bool saveToDownloads = true,      // Save to Downloads folder (Android)
-  ProgressCallback? onProgress,     // Progress callback
-  SuccessCallback? onComplete,      // Success callback with file path
-  ErrorCallback? onError,           // Error callback
+required String url,              // File URL
+required String filename,         // Save as filename
+bool showNotification = true,     // Show progress notification
+bool saveToDownloads = true,      // Save to Downloads folder (Android)
+ProgressCallback? onProgress,     // Progress callback
+SuccessCallback? onComplete,      // Success callback with file path
+ErrorCallback? onError,           // Error callback
 })
 ```
 
@@ -448,9 +450,9 @@ Quick download without notifications.
 
 ```dart
 Future<DownloadResult> downloadSilent({
-  required String url,
-  required String filename,
-  bool saveToDownloads = false,
+required String url,
+required String filename,
+bool saveToDownloads = false,
 })
 ```
 
@@ -487,9 +489,9 @@ typedef ErrorCallback = void Function(String error);
 
 ```dart
 class DownloadResult {
-  final bool success;        // Whether download succeeded
-  final String? filePath;    // Path to downloaded file (null if failed)
-  final String message;      // Human-readable message
+   final bool success;        // Whether download succeeded
+   final String? filePath;    // Path to downloaded file (null if failed)
+   final String message;      // Human-readable message
 }
 ```
 
@@ -501,15 +503,15 @@ Since this version focuses on notifications only (without tap-to-open), you can 
 
 ```dart
 await FlutterAnyDownload.instance.download(
-  url: 'https://example.com/file.pdf',
-  filename: 'document.pdf',
-  onComplete: (filePath) {
-    print('File available at: $filePath');
-    
-    // Use the file as needed
-    final file = File(filePath);
-    // Process file...
-  },
+url: 'https://example.com/file.pdf',
+filename: 'document.pdf',
+onComplete: (filePath) {
+print('File available at: $filePath');
+
+// Use the file as needed
+final file = File(filePath);
+// Process file...
+},
 );
 ```
 
@@ -517,13 +519,13 @@ await FlutterAnyDownload.instance.download(
 
 ```dart
 final result = await FlutterAnyDownload.instance.download(
-  url: 'https://example.com/file.pdf',
-  filename: 'document.pdf',
+url: 'https://example.com/file.pdf',
+filename: 'document.pdf',
 );
 
 if (result.success && result.filePath != null) {
-  final file = File(result.filePath!);
-  // Use file...
+final file = File(result.filePath!);
+// Use file...
 }
 ```
 
@@ -538,12 +540,12 @@ If you need to open files, you can add your own logic:
 import 'package:open_filex/open_filex.dart';
 
 final result = await FlutterAnyDownload.instance.download(
-  url: 'https://example.com/file.pdf',
-  filename: 'document.pdf',
-  onComplete: (filePath) async {
-    // Open the file with default app
-    await OpenFilex.open(filePath);
-  },
+url: 'https://example.com/file.pdf',
+filename: 'document.pdf',
+onComplete: (filePath) async {
+// Open the file with default app
+await OpenFilex.open(filePath);
+},
 );
 ```
 
@@ -554,17 +556,17 @@ final result = await FlutterAnyDownload.instance.download(
 ```dart
 // Save to Downloads folder (Android only)
 await FlutterAnyDownload.instance.download(
-  url: 'https://example.com/file.pdf',
-  filename: 'document.pdf',
-  saveToDownloads: true,  // Android: /storage/emulated/0/Download
-                          // iOS: App Documents directory
+url: 'https://example.com/file.pdf',
+filename: 'document.pdf',
+saveToDownloads: true,  // Android: /storage/emulated/0/Download
+// iOS: App Documents directory
 );
 
 // Save to app directory
 await FlutterAnyDownload.instance.download(
-  url: 'https://example.com/file.pdf',
-  filename: 'document.pdf',
-  saveToDownloads: false,  // App's Documents directory
+url: 'https://example.com/file.pdf',
+filename: 'document.pdf',
+saveToDownloads: false,  // App's Documents directory
 );
 ```
 
@@ -572,26 +574,26 @@ await FlutterAnyDownload.instance.download(
 
 ```dart
 try {
-  final result = await FlutterAnyDownload.instance.download(
-    url: 'https://example.com/file.pdf',
-    filename: 'document.pdf',
-    onError: (error) {
-      print('Download error: $error');
-    },
-  );
-  
-  if (!result.success) {
-    // Handle download failure
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text('Download Failed'),
-        content: Text(result.message),
-      ),
-    );
-  }
+final result = await FlutterAnyDownload.instance.download(
+url: 'https://example.com/file.pdf',
+filename: 'document.pdf',
+onError: (error) {
+print('Download error: $error');
+},
+);
+
+if (!result.success) {
+// Handle download failure
+showDialog(
+context: context,
+builder: (context) => AlertDialog(
+title: Text('Download Failed'),
+content: Text(result.message),
+),
+);
+}
 } catch (e) {
-  print('Exception: $e');
+print('Exception: $e');
 }
 ```
 
@@ -630,10 +632,10 @@ cd ios && pod install && cd ..
 4. ✅ **Request permission explicitly** in your code:
 ```dart
 void main() async {
-  WidgetsFlutterBinding.ensureInitialized();
-  await FlutterAnyDownload.instance.initialize();
-  await FlutterAnyDownload.instance.requestPermission();  // ← CRITICAL!
-  runApp(MyApp());
+   WidgetsFlutterBinding.ensureInitialized();
+   await FlutterAnyDownload.instance.initialize();
+   await FlutterAnyDownload.instance.requestPermission();  // ← CRITICAL!
+   runApp(MyApp());
 }
 ```
 
@@ -704,28 +706,28 @@ print('File saved at: ${result.filePath}');
 ### Wrong - Forgetting Permission Request
 ```dart
 void main() async {
-  WidgetsFlutterBinding.ensureInitialized();
-  await FlutterAnyDownload.instance.initialize();
-  // Missing requestPermission() call!
-  runApp(MyApp());
+   WidgetsFlutterBinding.ensureInitialized();
+   await FlutterAnyDownload.instance.initialize();
+   // Missing requestPermission() call!
+   runApp(MyApp());
 }
 ```
 
 ### Correct - Request Permission
 ```dart
 void main() async {
-  WidgetsFlutterBinding.ensureInitialized();
-  await FlutterAnyDownload.instance.initialize();
-  await FlutterAnyDownload.instance.requestPermission();  // ← Add this!
-  runApp(MyApp());
+   WidgetsFlutterBinding.ensureInitialized();
+   await FlutterAnyDownload.instance.initialize();
+   await FlutterAnyDownload.instance.requestPermission();  // ← Add this!
+   runApp(MyApp());
 }
 ```
 
 ### Wrong - Not Storing File Path
 ```dart
 await FlutterAnyDownload.instance.download(
-  url: url,
-  filename: filename,
+url: url,
+filename: filename,
 );
 // How do I access the file now? 🤔
 ```
@@ -735,17 +737,17 @@ await FlutterAnyDownload.instance.download(
 String? downloadedFilePath;
 
 final result = await FlutterAnyDownload.instance.download(
-  url: url,
-  filename: filename,
-  onComplete: (filePath) {
-    downloadedFilePath = filePath;
-    // Now you can use it!
-  },
+url: url,
+filename: filename,
+onComplete: (filePath) {
+downloadedFilePath = filePath;
+// Now you can use it!
+},
 );
 
 // Or use result.filePath
 if (result.success) {
-  downloadedFilePath = result.filePath;
+downloadedFilePath = result.filePath;
 }
 ```
 

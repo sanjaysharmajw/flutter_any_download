@@ -1,7 +1,11 @@
 name: flutter_any_download
 description: "Download any file and open Android and iOS"
-version: 1.1.3
+version: 1.1.4
 homepage: https://github.com/sanjaysharmajw/flutter_any_download
+repository: https://github.com/sanjaysharmajw/flutter_any_download
+issue_tracker: https://github.com/sanjaysharmajw/flutter_any_download/issues
+documentation: https://github.com/sanjaysharmajw/flutter_any_download#readme
+
 
 environment:
   sdk: ^3.8.1
