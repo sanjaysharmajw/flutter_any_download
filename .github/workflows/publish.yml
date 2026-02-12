@@ -1,0 +1,89 @@
+name: Publish to pub.dev
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'           # Triggers on version tags like v1.0.0
+  workflow_dispatch:        # Allows manual trigger from GitHub Actions UI
+
+jobs:
+  # ─────────────────────────────────────────────
+  # JOB 1 — Lint & dry-run checks
+  # ─────────────────────────────────────────────
+  validate:
+    name: Validate package
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: 'stable'
+          channel: 'stable'
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      # ── Auto-fix unused imports ─────────────
+      - name: Fix unused imports
+        run: dart fix --apply --code=unused_import
+
+      # Commit the fixes back so the published
+      # source is always clean.
+      - name: Commit dart fix changes (if any)
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "chore: remove unused imports (dart fix)"
+          commit_options: '--no-verify'
+          file_pattern: '**.dart'
+
+      # ── Static analysis ─────────────────────
+      - name: Run dart analyze
+        run: dart analyze --fatal-infos
+
+      # ── Tests ───────────────────────────────
+      - name: Run tests
+        run: flutter test
+
+      # ── Dry-run publish (Step 1) ─────────────
+      - name: flutter pub publish --dry-run
+        run: flutter pub publish --dry-run
+
+  # ─────────────────────────────────────────────
+  # JOB 2 — Publish (only after validate passes)
+  # ─────────────────────────────────────────────
+  publish:
+    name: Publish to pub.dev
+    runs-on: ubuntu-latest
+    needs: validate          # Gate: validate job must succeed first
+    environment: pub_dev     # Optional: require manual approval in GitHub
+
+    permissions:
+      id-token: write        # Required for OIDC-based pub.dev auth
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: 'stable'
+          channel: 'stable'
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      # Re-apply fix so published code is clean
+      # even if the auto-commit above wasn't pulled.
+      - name: Fix unused imports
+        run: dart fix --apply --code=unused_import
+
+      # ── Publish (Step 3) ─────────────────────
+      - name: Publish package
+        run: flutter pub publish --force   # --force skips the interactive y/n prompt

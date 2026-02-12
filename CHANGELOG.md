@@ -7,6 +7,6 @@
 * File opening integration
 * Comprehensive error handling
 
-## 1.1.3
+## 1.1.5
 
 * iOS Notification issue fixed
