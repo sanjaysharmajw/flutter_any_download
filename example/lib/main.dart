@@ -1,825 +1,525 @@
+// =============================================================================
+// FLUTTER ANY DOWNLOAD - USAGE EXAMPLES
+// =============================================================================
+
 import 'package:flutter/material.dart';
 import 'package:flutter_any_download/flutter_any_download.dart';
-import 'package:open_filex/open_filex.dart';
-import 'dart:io';
 
-void main() {
+// =============================================================================
+// EXAMPLE 1: BASIC SETUP (main.dart)
+// =============================================================================
+
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  // Initialize the download manager once at app startup
+  await FlutterAnyDownload.instance.initialize();
+
   runApp(const MyApp());
 }
 
 class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+  const MyApp({Key? key}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Flutter Any Download',
-      debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        primarySwatch: Colors.blue,
-        useMaterial3: true,
-        fontFamily: 'Inter',
-        scaffoldBackgroundColor: const Color(0xFFF8FAFC),
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF3B82F6),
-          brightness: Brightness.light,
-        ),
-      ),
-      home: const DownloadDemoPage(),
+      title: 'Download Manager Demo',
+      theme: ThemeData(primarySwatch: Colors.blue),
+      home: const DownloadExamplesScreen(),
     );
   }
 }
 
-class DownloadDemoPage extends StatefulWidget {
-  const DownloadDemoPage({super.key});
+// =============================================================================
+// EXAMPLE 2: SIMPLE DOWNLOAD BUTTON
+// =============================================================================
+
+class SimpleDownloadExample extends StatefulWidget {
+  const SimpleDownloadExample({Key? key}) : super(key: key);
 
   @override
-  State<DownloadDemoPage> createState() => _DownloadDemoPageState();
+  State<SimpleDownloadExample> createState() => _SimpleDownloadExampleState();
 }
 
-class _DownloadDemoPageState extends State<DownloadDemoPage>
-    with TickerProviderStateMixin {
-  final FlutterAnyDownload _downloader = FlutterAnyDownload();
-  final TextEditingController _urlController = TextEditingController();
-  final TextEditingController _filenameController = TextEditingController();
-
-  bool _isDownloading = false;
-  double _progress = 0.0;
+class _SimpleDownloadExampleState extends State<SimpleDownloadExample> {
   String _status = 'Ready to download';
-  String? _downloadedFilePath;
+  bool _isDownloading = false;
 
-  late AnimationController _pulseController;
-  late AnimationController _successController;
-  late Animation<double> _pulseAnimation;
-  late Animation<double> _successAnimation;
+  Future<void> _downloadFile() async {
+    setState(() {
+      _isDownloading = true;
+      _status = 'Downloading...';
+    });
+
+    // Simple one-liner download
+    final result = await FlutterAnyDownload.instance.download(
+      url: 'https://www.princexml.com/samples/icelandic/dictionary.pdf',
+      filename: 'sample.pdf',
+    );
+
+    setState(() {
+      _isDownloading = false;
+      if (result.success) {
+        _status = 'Downloaded to: ${result.filePath}';
+      } else {
+        _status = 'Error: ${result.message}';
+      }
+    });
+  }
 
   @override
-  void initState() {
-    super.initState();
-    _initializeDownloader();
-    _setupAnimations();
-
-    // Sample URL - PDF file
-    _urlController.text =
-    'https://www.princexml.com/samples/icelandic/dictionary.pdf';
-    _filenameController.text = 'dictionary.pdf';
-  }
-
-  void _setupAnimations() {
-    _pulseController = AnimationController(
-      duration: const Duration(seconds: 2),
-      vsync: this,
-    )..repeat(reverse: true);
-    _successController = AnimationController(
-      duration: const Duration(milliseconds: 600),
-      vsync: this,
-    );
-
-    _pulseAnimation = Tween<double>(begin: 1.0, end: 1.1).animate(
-      CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
-    );
-
-    _successAnimation = CurvedAnimation(
-      parent: _successController,
-      curve: Curves.elasticOut,
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        ElevatedButton(
+          onPressed: _isDownloading ? null : _downloadFile,
+          child: const Text('Download PDF'),
+        ),
+        const SizedBox(height: 20),
+        Text(_status),
+      ],
     );
   }
+}
 
-  Future<void> _initializeDownloader() async {
-    await _downloader.initialize();
-    await _downloader.requestNotificationPermission();
-  }
+// =============================================================================
+// EXAMPLE 3: DOWNLOAD WITH PROGRESS BAR
+// =============================================================================
 
-  Future<void> _startDownload() async {
-    if (_urlController.text.isEmpty || _filenameController.text.isEmpty) {
-      _showSnackBar('Please enter URL and filename', isError: true);
-      return;
-    }
+class ProgressDownloadExample extends StatefulWidget {
+  const ProgressDownloadExample({Key? key}) : super(key: key);
 
+  @override
+  State<ProgressDownloadExample> createState() => _ProgressDownloadExampleState();
+}
+
+class _ProgressDownloadExampleState extends State<ProgressDownloadExample> {
+  double _progress = 0.0;
+  String _status = 'Ready';
+  bool _isDownloading = false;
+
+  Future<void> _downloadWithProgress() async {
     setState(() {
       _isDownloading = true;
       _progress = 0.0;
-      _status = 'Initializing download...';
-      _downloadedFilePath = null;
+      _status = 'Starting download...';
     });
 
-    final result = await _downloader.downloadFile(
-      url: _urlController.text,
-      filename: _filenameController.text,
-      saveToDownloadsFolder: true,
-      showNotification: true,
+    final result = await FlutterAnyDownload.instance.download(
+      url: 'https://getsamplefiles.com/download/zip/sample-5.zip',
+      filename: 'large_file.zip',
       onProgress: (downloaded, total) {
         setState(() {
           _progress = downloaded / total;
-          final downloadedMB = (downloaded / 1024 / 1024).toStringAsFixed(2);
-          final totalMB = (total / 1024 / 1024).toStringAsFixed(2);
-          _status = 'Downloading $downloadedMB MB / $totalMB MB';
+          _status = 'Downloaded ${(downloaded / 1024 / 1024).toStringAsFixed(2)} MB / ${(total / 1024 / 1024).toStringAsFixed(2)} MB';
         });
       },
-      onComplete: (filePath) {
-        setState(() {
-          _isDownloading = false;
-          _status = 'Download completed successfully! 🎉';
-          _downloadedFilePath = filePath;
-        });
-        _successController.forward(from: 0);
-        _showSnackBar('Download completed!', isSuccess: true);
+      onComplete: (path) {
+        print('Download completed: $path');
       },
       onError: (error) {
-        setState(() {
-          _isDownloading = false;
-          _status = 'Download failed';
-        });
-        _showSnackBar('Download failed: $error', isError: true);
+        print('Download error: $error');
       },
     );
 
-    if (!result.success) {
-      setState(() {
-        _isDownloading = false;
-        _status = result.message;
-      });
-    }
-  }
-
-  Future<void> _openDownloadedFile() async {
-    if (_downloadedFilePath == null) {
-      _showSnackBar('No file available to open', isError: true);
-      return;
-    }
-
-    try {
-      final file = File(_downloadedFilePath!);
-      if (!await file.exists()) {
-        _showSnackBar('File not found', isError: true);
-        return;
-      }
-
-      final result = await OpenFilex.open(_downloadedFilePath!);
-
-      if (result.type == ResultType.done) {
-        _showSnackBar('File opened successfully', isSuccess: true);
-      } else if (result.type == ResultType.noAppToOpen) {
-        _showSnackBar('No app available to open this file', isError: true);
+    setState(() {
+      _isDownloading = false;
+      if (result.success) {
+        _status = 'Download complete! ✅';
       } else {
-        _showSnackBar('Could not open file', isError: true);
+        _status = 'Download failed ❌';
       }
-    } catch (e) {
-      _showSnackBar('Error opening file: $e', isError: true);
-    }
+    });
   }
 
-  void _showSnackBar(String message,
-      {bool isError = false, bool isSuccess = false}) {
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          LinearProgressIndicator(
+            value: _progress,
+            minHeight: 10,
+            backgroundColor: Colors.grey[300],
+            valueColor: const AlwaysStoppedAnimation<Color>(Colors.blue),
+          ),
+          const SizedBox(height: 20),
+          Text(
+            '${(_progress * 100).toInt()}%',
+            style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 10),
+          Text(_status),
+          const SizedBox(height: 30),
+          ElevatedButton.icon(
+            onPressed: _isDownloading ? null : _downloadWithProgress,
+            icon: const Icon(Icons.download),
+            label: const Text('Download Large File'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// =============================================================================
+// EXAMPLE 4: SILENT DOWNLOAD (No Notifications)
+// =============================================================================
+
+class SilentDownloadExample extends StatelessWidget {
+  const SilentDownloadExample({Key? key}) : super(key: key);
+
+  Future<void> _downloadSilently(BuildContext context) async {
+    // Download without showing notifications (useful for app data/configs)
+    final result = await FlutterAnyDownload.instance.downloadSilent(
+      url: 'https://jsonplaceholder.typicode.com/posts',
+      filename: 'data.json',
+      saveToDownloads: false, // Save to app directory
+    );
+
+    if (!context.mounted) return;
+
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Row(
-          children: [
-            Icon(
-              isSuccess
-                  ? Icons.check_circle
-                  : isError
-                  ? Icons.error
-                  : Icons.info,
-              color: Colors.white,
-            ),
-            const SizedBox(width: 12),
-            Expanded(child: Text(message)),
-          ],
-        ),
-        backgroundColor: isSuccess
-            ? const Color(0xFF10B981)
-            : isError
-            ? const Color(0xFFEF4444)
-            : const Color(0xFF3B82F6),
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        duration: const Duration(seconds: 3),
+        content: Text(result.success ? 'Downloaded silently!' : 'Failed: ${result.message}'),
       ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              Color(0xFFF8FAFC),
-              Color(0xFFEFF6FF),
-            ],
-          ),
-        ),
-        child: SafeArea(
-          child: CustomScrollView(
-            slivers: [
-              _buildAppBar(),
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.all(20.0),
-                  child: Column(
-                    children: [
-                      _buildInputSection(),
-                      const SizedBox(height: 24),
-                      _buildProgressSection(),
-                      const SizedBox(height: 24),
-                      _buildActionButtons(),
-                      const SizedBox(height: 32),
-                      _buildFeaturesList(),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
+    return Center(
+      child: ElevatedButton(
+        onPressed: () => _downloadSilently(context),
+        child: const Text('Silent Download (No Notifications)'),
       ),
     );
   }
+}
 
-  Widget _buildAppBar() {
-    return SliverAppBar(
-      expandedHeight: 140,
-      floating: false,
-      pinned: true,
-      elevation: 0,
-      backgroundColor: Colors.transparent,
-      flexibleSpace: FlexibleSpaceBar(
-        title: const Text(
-          'Flutter Any Download',
-          style: TextStyle(
-            color: Color(0xFF1E293B),
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        background: Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                const Color(0xFF3B82F6).withOpacity(0.1),
-                const Color(0xFF8B5CF6).withOpacity(0.1),
-              ],
-            ),
-          ),
-          child: Center(
-            child: Icon(
-              Icons.cloud_download_rounded,
-              size: 80,
-              color: const Color(0xFF3B82F6).withOpacity(0.3),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
+// =============================================================================
+// EXAMPLE 5: MULTIPLE DOWNLOADS
+// =============================================================================
 
-  Widget _buildInputSection() {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF3B82F6).withOpacity(0.08),
-            blurRadius: 20,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(24.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [Color(0xFF3B82F6), Color(0xFF8B5CF6)],
-                    ),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: const Icon(
-                    Icons.settings_input_component,
-                    color: Colors.white,
-                    size: 24,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                const Text(
-                  'Configuration',
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF1E293B),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 24),
-            _buildModernTextField(
-              controller: _urlController,
-              label: 'Download URL',
-              hint: 'https://example.com/file.pdf',
-              icon: Icons.link_rounded,
-              maxLines: 2,
-            ),
-            const SizedBox(height: 16),
-            _buildModernTextField(
-              controller: _filenameController,
-              label: 'Filename',
-              hint: 'my_file.pdf',
-              icon: Icons.insert_drive_file_rounded,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
+class MultipleDownloadsExample extends StatefulWidget {
+  const MultipleDownloadsExample({Key? key}) : super(key: key);
 
-  Widget _buildModernTextField({
-    required TextEditingController controller,
-    required String label,
-    required String hint,
-    required IconData icon,
-    int maxLines = 1,
-  }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          style: const TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.w600,
-            color: Color(0xFF64748B),
-          ),
-        ),
-        const SizedBox(height: 8),
-        Container(
-          decoration: BoxDecoration(
-            color: const Color(0xFFF1F5F9),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: const Color(0xFFE2E8F0)),
-          ),
-          child: TextField(
-            controller: controller,
-            maxLines: maxLines,
-            style: const TextStyle(
-              fontSize: 15,
-              color: Color(0xFF1E293B),
-            ),
-            decoration: InputDecoration(
-              hintText: hint,
-              hintStyle: TextStyle(color: Colors.grey[400]),
-              prefixIcon: Icon(icon, color: const Color(0xFF3B82F6)),
-              border: InputBorder.none,
-              contentPadding: const EdgeInsets.symmetric(
-                horizontal: 16,
-                vertical: 16,
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
+  @override
+  State<MultipleDownloadsExample> createState() => _MultipleDownloadsExampleState();
+}
 
-  Widget _buildProgressSection() {
-    if (!_isDownloading && _downloadedFilePath == null) {
-      return Container(
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(20),
-          boxShadow: [
-            BoxShadow(
-              color: const Color(0xFF3B82F6).withOpacity(0.08),
-              blurRadius: 20,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [
-                    const Color(0xFF3B82F6).withOpacity(0.1),
-                    const Color(0xFF8B5CF6).withOpacity(0.1),
-                  ],
-                ),
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(
-                Icons.download_rounded,
-                size: 48,
-                color: Color(0xFF3B82F6),
-              ),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              _status,
-              style: const TextStyle(
-                fontSize: 16,
-                color: Color(0xFF64748B),
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ],
-        ),
-      );
-    }
+class _MultipleDownloadsExampleState extends State<MultipleDownloadsExample> {
+  final List<DownloadItem> _downloads = [];
 
-    if (_isDownloading) {
-      return AnimatedBuilder(
-        animation: _pulseAnimation,
-        builder: (context, child) {
-          return Transform.scale(
-            scale: _pulseAnimation.value,
-            child: Container(
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [Color(0xFF3B82F6), Color(0xFF8B5CF6)],
-                ),
-                borderRadius: BorderRadius.circular(20),
-                boxShadow: [
-                  BoxShadow(
-                    color: const Color(0xFF3B82F6).withOpacity(0.3),
-                    blurRadius: 20,
-                    offset: const Offset(0, 8),
-                  ),
-                ],
-              ),
-              child: Padding(
-                padding: const EdgeInsets.all(32.0),
-                child: Column(
-                  children: [
-                    Stack(
-                      alignment: Alignment.center,
-                      children: [
-                        SizedBox(
-                          width: 120,
-                          height: 120,
-                          child: CircularProgressIndicator(
-                            value: _progress,
-                            strokeWidth: 8,
-                            backgroundColor: Colors.white.withOpacity(0.3),
-                            valueColor: const AlwaysStoppedAnimation<Color>(
-                              Colors.white,
-                            ),
-                          ),
-                        ),
-                        Text(
-                          '${(_progress * 100).toStringAsFixed(0)}%',
-                          style: const TextStyle(
-                            fontSize: 32,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 24),
-                    const Text(
-                      'Downloading...',
-                      style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      _status,
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: Colors.white.withOpacity(0.9),
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          );
-        },
-      );
-    }
-
-    // Success state
-    return ScaleTransition(
-      scale: _successAnimation,
-      child: Container(
-        decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            colors: [Color(0xFF10B981), Color(0xFF059669)],
-          ),
-          borderRadius: BorderRadius.circular(20),
-          boxShadow: [
-            BoxShadow(
-              color: const Color(0xFF10B981).withOpacity(0.3),
-              blurRadius: 20,
-              offset: const Offset(0, 8),
-            ),
-          ],
-        ),
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: const BoxDecoration(
-                color: Colors.white,
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(
-                Icons.check_rounded,
-                size: 48,
-                color: Color(0xFF10B981),
-              ),
-            ),
-            const SizedBox(height: 16),
-            const Text(
-              'Download Complete!',
-              style: TextStyle(
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
-                color: Colors.white,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              _status,
-              style: TextStyle(
-                fontSize: 14,
-                color: Colors.white.withOpacity(0.9),
-              ),
-              textAlign: TextAlign.center,
-            ),
-            if (_downloadedFilePath != null) ...[
-              const SizedBox(height: 12),
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.2),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text(
-                  _downloadedFilePath!,
-                  style: const TextStyle(
-                    fontSize: 12,
-                    color: Colors.white,
-                    fontFamily: 'monospace',
-                  ),
-                  textAlign: TextAlign.center,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildActionButtons() {
-    return Column(
-      children: [
-        _buildGradientButton(
-          onPressed: _isDownloading ? null : _startDownload,
-          icon: Icons.download_rounded,
-          label: 'Start Download',
-          gradient: const LinearGradient(
-            colors: [Color(0xFF3B82F6), Color(0xFF8B5CF6)],
-          ),
-        ),
-        if (_downloadedFilePath != null) ...[
-          const SizedBox(height: 12),
-          _buildGradientButton(
-            onPressed: _openDownloadedFile,
-            icon: Icons.folder_open_rounded,
-            label: 'Open Downloaded File',
-            gradient: const LinearGradient(
-              colors: [Color(0xFF10B981), Color(0xFF059669)],
-            ),
-          ),
-        ],
-        if (_isDownloading) ...[
-          const SizedBox(height: 12),
-          _buildOutlineButton(
-            onPressed: () {
-              _downloader.cancelAllDownloads();
-              setState(() {
-                _isDownloading = false;
-                _status = 'Download cancelled';
-              });
-            },
-            icon: Icons.cancel_rounded,
-            label: 'Cancel Download',
-          ),
-        ],
-      ],
-    );
-  }
-
-  Widget _buildGradientButton({
-    required VoidCallback? onPressed,
-    required IconData icon,
-    required String label,
-    required Gradient gradient,
-  }) {
-    return Container(
-      decoration: BoxDecoration(
-        gradient: onPressed != null ? gradient : null,
-        color: onPressed == null ? Colors.grey[300] : null,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: onPressed != null
-            ? [
-          BoxShadow(
-            color: gradient.colors.first.withOpacity(0.3),
-            blurRadius: 12,
-            offset: const Offset(0, 6),
-          ),
-        ]
-            : [],
-      ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: onPressed,
-          borderRadius: BorderRadius.circular(16),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 18),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(
-                  icon,
-                  color: onPressed != null ? Colors.white : Colors.grey[500],
-                  size: 24,
-                ),
-                const SizedBox(width: 12),
-                Text(
-                  label,
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    color: onPressed != null ? Colors.white : Colors.grey[500],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildOutlineButton({
-    required VoidCallback? onPressed,
-    required IconData icon,
-    required String label,
-  }) {
-    return Container(
-      decoration: BoxDecoration(
-        border: Border.all(color: const Color(0xFFEF4444), width: 2),
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: onPressed,
-          borderRadius: BorderRadius.circular(16),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 18),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(icon, color: const Color(0xFFEF4444), size: 24),
-                const SizedBox(width: 12),
-                Text(
-                  label,
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    color: Color(0xFFEF4444),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildFeaturesList() {
-    final features = [
-      {'icon': Icons.speed_rounded, 'text': 'HTTP stream-based download'},
-      {'icon': Icons.notifications_active_rounded, 'text': 'Real-time progress'},
-      {'icon': Icons.check_circle_rounded, 'text': 'Download completion alert'},
-      {'icon': Icons.folder_rounded, 'text': 'Auto-save to Downloads'},
-      {'icon': Icons.phone_android_rounded, 'text': 'Android 13+ support'},
-      {'icon': Icons.phone_iphone_rounded, 'text': 'iOS notifications'},
-      {'icon': Icons.touch_app_rounded, 'text': 'Tap to open file'},
-      {'icon': Icons.cancel_rounded, 'text': 'Cancel anytime'},
+  Future<void> _downloadMultipleFiles() async {
+    final files = [
+      {'url': 'https://www.princexml.com/samples/invoice-colorful/invoicesample.pdf', 'name': 'file1.pdf'},
+      {'url': 'https://www.princexml.com/samples/invoice-plain/index.pdf', 'name': 'file2.pdf'},
+      {'url': 'https://www.princexml.com/samples/textbook/somatosensory.pdf', 'name': 'file3.pdf'},
     ];
 
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF3B82F6).withOpacity(0.08),
-            blurRadius: 20,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(24.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF3B82F6).withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: const Icon(
-                    Icons.star_rounded,
-                    color: Color(0xFF3B82F6),
-                    size: 20,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                const Text(
-                  'Features',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF1E293B),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 20),
-            ...features.map((feature) => Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF3B82F6).withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Icon(
-                      feature['icon'] as IconData,
-                      color: const Color(0xFF3B82F6),
-                      size: 18,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      feature['text'] as String,
-                      style: const TextStyle(
-                        fontSize: 14,
-                        color: Color(0xFF64748B),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            )),
-          ],
-        ),
-      ),
-    );
+    for (var file in files) {
+      final item = DownloadItem(filename: file['name']!, status: 'Downloading...');
+      setState(() => _downloads.add(item));
+
+      final result = await FlutterAnyDownload.instance.download(
+        url: file['url']!,
+        filename: file['name']!,
+        onProgress: (downloaded, total) {
+          final progress = (downloaded / total * 100).toInt();
+          setState(() {
+            item.status = 'Progress: $progress%';
+          });
+        },
+      );
+
+      setState(() {
+        item.status = result.success ? '✅ Complete' : '❌ Failed';
+      });
+    }
   }
 
   @override
-  void dispose() {
-    _urlController.dispose();
-    _filenameController.dispose();
-    _pulseController.dispose();
-    _successController.dispose();
-    super.dispose();
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        ElevatedButton(
+          onPressed: _downloads.isEmpty ? _downloadMultipleFiles : null,
+          child: const Text('Download 3 Files'),
+        ),
+        const SizedBox(height: 20),
+        Expanded(
+          child: ListView.builder(
+            itemCount: _downloads.length,
+            itemBuilder: (context, index) {
+              final item = _downloads[index];
+              return ListTile(
+                leading: const Icon(Icons.file_download),
+                title: Text(item.filename),
+                subtitle: Text(item.status),
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class DownloadItem {
+  final String filename;
+  String status;
+
+  DownloadItem({required this.filename, required this.status});
+}
+
+// =============================================================================
+// EXAMPLE 6: PERMISSION HANDLING
+// =============================================================================
+
+class PermissionExample extends StatefulWidget {
+  const PermissionExample({Key? key}) : super(key: key);
+
+  @override
+  State<PermissionExample> createState() => _PermissionExampleState();
+}
+
+class _PermissionExampleState extends State<PermissionExample> {
+  bool? _permissionGranted;
+
+  Future<void> _checkPermission() async {
+    final granted = await FlutterAnyDownload.instance.areNotificationsEnabled();
+    setState(() => _permissionGranted = granted);
+  }
+
+  Future<void> _requestPermission() async {
+    final granted = await FlutterAnyDownload.instance.requestPermission();
+    setState(() => _permissionGranted = granted);
+
+    if (!granted && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Permission denied. Downloads will work but without notifications.')),
+      );
+    }
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _checkPermission();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Text(
+          'Notification Permission: ${_permissionGranted == null ? "Checking..." : _permissionGranted! ? "✅ Granted" : "❌ Denied"}',
+          style: const TextStyle(fontSize: 16),
+        ),
+        const SizedBox(height: 20),
+        ElevatedButton(
+          onPressed: _requestPermission,
+          child: const Text('Request Permission'),
+        ),
+      ],
+    );
+  }
+}
+
+// =============================================================================
+// EXAMPLE 7: CANCEL DOWNLOADS
+// =============================================================================
+
+class CancelDownloadExample extends StatefulWidget {
+  const CancelDownloadExample({Key? key}) : super(key: key);
+
+  @override
+  State<CancelDownloadExample> createState() => _CancelDownloadExampleState();
+}
+
+class _CancelDownloadExampleState extends State<CancelDownloadExample> {
+  bool _isDownloading = false;
+
+  Future<void> _startLongDownload() async {
+    setState(() => _isDownloading = true);
+
+    final result = await FlutterAnyDownload.instance.download(
+      url: 'https://getsamplefiles.com/download/zip/sample-4.zip',
+      filename: 'very_large_file.zip',
+    );
+
+    setState(() => _isDownloading = false);
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(result.message)),
+      );
+    }
+  }
+
+  Future<void> _cancelDownload() async {
+    await FlutterAnyDownload.instance.cancelAll();
+    setState(() => _isDownloading = false);
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Download cancelled')),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        ElevatedButton(
+          onPressed: _isDownloading ? null : _startLongDownload,
+          child: const Text('Start Large Download'),
+        ),
+        const SizedBox(height: 20),
+        ElevatedButton(
+          onPressed: _isDownloading ? _cancelDownload : null,
+          style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+          child: const Text('Cancel All Downloads'),
+        ),
+      ],
+    );
+  }
+}
+
+// =============================================================================
+// EXAMPLE 8: DOWNLOAD DIFFERENT FILE TYPES
+// =============================================================================
+
+class FileTypesExample extends StatelessWidget {
+  const FileTypesExample({Key? key}) : super(key: key);
+
+  Future<void> _downloadFile(String url, String filename) async {
+    final result = await FlutterAnyDownload.instance.download(
+      url: url,
+      filename: filename,
+    );
+    print('Download result: ${result.message}');
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView(
+      padding: const EdgeInsets.all(20),
+      children: [
+        _buildDownloadButton(
+          'Download PDF',
+          Icons.picture_as_pdf,
+              () => _downloadFile(
+            'https://www.princexml.com/samples/newsletter/drylab.pdf',
+            'drylab.pdf',
+          ),
+        ),
+        _buildDownloadButton(
+          'Download Image',
+          Icons.image,
+              () => _downloadFile(
+            'https://www.pexels.com/photo/contrasting-architectural-styles-in-urban-setting-35581905/',
+            'urban.jpg',
+          ),
+        ),
+        _buildDownloadButton(
+          'Download Video',
+          Icons.video_file,
+              () => _downloadFile(
+            'https://www.pexels.com/video/dramatic-cliffs-overlooking-ocean-at-sunset-30605373/',
+            'dramatic.mp4',
+          ),
+        ),
+        _buildDownloadButton(
+          'Download ZIP',
+          Icons.folder_zip,
+              () => _downloadFile(
+            'https://getsamplefiles.com/download/zip/sample-3.zip',
+            'archive.zip',
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDownloadButton(String label, IconData icon, VoidCallback onPressed) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: ElevatedButton.icon(
+        onPressed: onPressed,
+        icon: Icon(icon),
+        label: Text(label),
+        style: ElevatedButton.styleFrom(
+          padding: const EdgeInsets.all(15),
+        ),
+      ),
+    );
+  }
+}
+
+// =============================================================================
+// MAIN SCREEN WITH ALL EXAMPLES
+// =============================================================================
+
+class DownloadExamplesScreen extends StatefulWidget {
+  const DownloadExamplesScreen({Key? key}) : super(key: key);
+
+  @override
+  State<DownloadExamplesScreen> createState() => _DownloadExamplesScreenState();
+}
+
+class _DownloadExamplesScreenState extends State<DownloadExamplesScreen> {
+  int _currentIndex = 0;
+
+  final List<Widget> _examples = const [
+    SimpleDownloadExample(),
+    ProgressDownloadExample(),
+    SilentDownloadExample(),
+    MultipleDownloadsExample(),
+    PermissionExample(),
+    CancelDownloadExample(),
+    FileTypesExample(),
+  ];
+
+  final List<String> _titles = const [
+    'Simple Download',
+    'Progress Bar',
+    'Silent Download',
+    'Multiple Downloads',
+    'Permissions',
+    'Cancel Downloads',
+    'File Types',
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(_titles[_currentIndex]),
+      ),
+      body: _examples[_currentIndex],
+      bottomNavigationBar: BottomNavigationBar(
+        currentIndex: _currentIndex,
+        onTap: (index) => setState(() => _currentIndex = index),
+        type: BottomNavigationBarType.fixed,
+        items: const [
+          BottomNavigationBarItem(icon: Icon(Icons.download), label: 'Simple'),
+          BottomNavigationBarItem(icon: Icon(Icons.trending_up), label: 'Progress'),
+          BottomNavigationBarItem(icon: Icon(Icons.notifications_off), label: 'Silent'),
+          BottomNavigationBarItem(icon: Icon(Icons.list), label: 'Multiple'),
+          BottomNavigationBarItem(icon: Icon(Icons.security), label: 'Permission'),
+          BottomNavigationBarItem(icon: Icon(Icons.cancel), label: 'Cancel'),
+          BottomNavigationBarItem(icon: Icon(Icons.file_present), label: 'Types'),
+        ],
+      ),
+    );
   }
 }

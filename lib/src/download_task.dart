@@ -1,81 +1,88 @@
+// Download task model for tracking downloads
+
 import 'download_status.dart';
 
-/// Download task model
 class DownloadTask {
-  /// Unique task ID
   final String id;
-  
-  /// Download URL
   final String url;
-  
-  /// Target filename
   final String filename;
-  
-  /// Current download status
+  final String savePath;
   DownloadStatus status;
-  
-  /// Downloaded bytes
   int downloadedBytes;
-  
-  /// Total bytes to download
   int totalBytes;
-  
-  /// File save path
-  String? filePath;
-  
-  /// Error message if failed
-  String? errorMessage;
+  String? error;
 
   DownloadTask({
     required this.id,
     required this.url,
     required this.filename,
-    this.status = DownloadStatus.queued,
+    required this.savePath,
+    this.status = DownloadStatus.idle,
     this.downloadedBytes = 0,
     this.totalBytes = 0,
-    this.filePath,
-    this.errorMessage,
+    this.error,
   });
 
-  /// Get download progress percentage (0-100)
-  int get progressPercentage {
+  /// Get download progress as percentage (0-100)
+  int get progressPercent {
     if (totalBytes == 0) return 0;
     return ((downloadedBytes / totalBytes) * 100).toInt();
   }
 
-  /// Check if download is complete
-  bool get isComplete => status == DownloadStatus.completed;
+  /// Get download progress as fraction (0.0-1.0)
+  double get progressFraction {
+    if (totalBytes == 0) return 0.0;
+    return downloadedBytes / totalBytes;
+  }
+
+  /// Get downloaded size in MB
+  double get downloadedMB => downloadedBytes / 1024 / 1024;
+
+  /// Get total size in MB
+  double get totalMB => totalBytes / 1024 / 1024;
+
+  /// Get formatted download progress string
+  String get progressString {
+    return '${downloadedMB.toStringAsFixed(2)} MB / ${totalMB.toStringAsFixed(2)} MB';
+  }
+
+  /// Check if download is in progress
+  bool get isDownloading => status == DownloadStatus.downloading;
+
+  /// Check if download is completed
+  bool get isCompleted => status == DownloadStatus.completed;
 
   /// Check if download failed
   bool get isFailed => status == DownloadStatus.failed;
 
-  /// Check if download is in progress
-  bool get isDownloading => status == DownloadStatus.downloading;
+  /// Check if download was cancelled
+  bool get isCancelled => status == DownloadStatus.cancelled;
 
   /// Update progress
   void updateProgress(int downloaded, int total) {
     downloadedBytes = downloaded;
     totalBytes = total;
-    if (status == DownloadStatus.queued) {
-      status = DownloadStatus.downloading;
-    }
+    status = DownloadStatus.downloading;
   }
 
   /// Mark as completed
-  void markCompleted(String path) {
+  void complete() {
     status = DownloadStatus.completed;
-    filePath = path;
-    downloadedBytes = totalBytes;
   }
 
   /// Mark as failed
-  void markFailed(String error) {
+  void fail(String errorMessage) {
     status = DownloadStatus.failed;
-    errorMessage = error;
+    error = errorMessage;
   }
 
   /// Mark as cancelled
-  void markCancelled() {
+  void cancel() {
     status = DownloadStatus.cancelled;
+  }
+
+  @override
+  String toString() {
+    return 'DownloadTask(id: $id, filename: $filename, status: ${status.displayName}, progress: $progressPercent%)';
   }
 }

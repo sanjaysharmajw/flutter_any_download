@@ -6,3 +6,7 @@
 * Cancellation support
 * File opening integration
 * Comprehensive error handling
+
+## 1.1.3
+
+* iOS Notification issue fixed
