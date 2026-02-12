@@ -1,4 +1,4 @@
-![Logo](https://raw.githubusercontent.com/sanjaysharmajw/flutter_any_download/refs/heads/main/screenshots/download.jpeg?token=GHSAT0AAAAAADSKSBILTOXDXSJ2SCD65MLG2MNTOGQ)
+![Logo](https://github.com/sanjaysharmajw/flutter_any_download/blob/main/screenshots/download.jpeg?raw=true)
 
 # Flutter Any Download 📥
 
