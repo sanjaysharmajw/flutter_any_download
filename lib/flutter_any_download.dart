@@ -387,7 +387,6 @@ class FlutterAnyDownload {
         notificationDetails: details,
       );
 
-
       if (kDebugMode && Platform.isIOS && progress % 25 == 0) {
         debugPrint('🔔 iOS notification shown: $progress%');
       }
@@ -427,7 +426,7 @@ class FlutterAnyDownload {
             visibility: NotificationVisibility.public,
           ),
         );
-      } else if (Platform.isIOS) {
+      } else if (Platform.isIOS) {   // subtitle: 'Progress: $progress%',
         details = NotificationDetails(
           iOS: DarwinNotificationDetails(
             presentAlert: true,

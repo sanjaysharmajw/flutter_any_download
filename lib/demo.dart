@@ -5,14 +5,12 @@
 // import 'package:path_provider/path_provider.dart';
 // import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 // import 'package:permission_handler/permission_handler.dart';
-// import 'package:open_filex/open_filex.dart';
-// import 'package:url_launcher/url_launcher.dart';
 //
 // export 'src/download_status.dart';
 // export 'src/download_task.dart';
 //
 // /// Simple, easy-to-use download manager for Flutter (iOS & Android)
-// /// With FIXED iOS notification support
+// /// With iOS notification support (tap-to-open removed)
 // class FlutterAnyDownload {
 //   static final FlutterAnyDownload instance = FlutterAnyDownload._internal();
 //   factory FlutterAnyDownload() => instance;
@@ -60,10 +58,7 @@
 //       android: AndroidInitializationSettings('@mipmap/ic_launcher'),
 //     );
 //
-//     await _notificationsPlugin.initialize(
-//       initSettings,
-//       onDidReceiveNotificationResponse: _onNotificationTap,
-//     );
+//     await _notificationsPlugin.initialize(settings: initSettings);
 //   }
 //
 //   Future<void> _initializeIOS() async {
@@ -72,19 +67,11 @@
 //       requestAlertPermission: true,
 //       requestBadgePermission: true,
 //       requestSoundPermission: true,
-//       onDidReceiveLocalNotification: (int id, String? title, String? body, String? payload) async {
-//         if (kDebugMode) {
-//           print('📱 iOS Legacy notification received: $title');
-//         }
-//       },
 //     );
 //
 //     final initSettings = InitializationSettings(iOS: iOSSettings);
 //
-//     final bool? initialized = await _notificationsPlugin.initialize(
-//       initSettings,
-//       onDidReceiveNotificationResponse: _onNotificationTap,
-//     );
+//     final bool? initialized = await _notificationsPlugin.initialize(settings: initSettings);
 //
 //     if (kDebugMode) {
 //       print('✅ iOS Plugin initialized: $initialized');
@@ -184,28 +171,6 @@
 //   // ---------------------------------------------------------------------------
 //   // INTERNAL IMPLEMENTATION
 //   // ---------------------------------------------------------------------------
-//
-//   Future<void> _onNotificationTap(NotificationResponse response) async {
-//     final path = response.payload;
-//     if (path == null || path.isEmpty) return;
-//
-//     if (kDebugMode) {
-//       print('🔔 Notification tapped: $path');
-//     }
-//
-//     try {
-//       if (Platform.isAndroid) {
-//         await OpenFilex.open(path);
-//       } else if (Platform.isIOS) {
-//         final uri = Uri.file(path);
-//         if (await canLaunchUrl(uri)) {
-//           await launchUrl(uri, mode: LaunchMode.externalApplication);
-//         }
-//       }
-//     } catch (e) {
-//       if (kDebugMode) print('❌ Error opening file: $e');
-//     }
-//   }
 //
 //   Future<bool> requestNotificationPermission() async {
 //     if (Platform.isAndroid) {
@@ -320,6 +285,11 @@
 //       // File write complete
 //       await Future.delayed(const Duration(milliseconds: 300));
 //
+//       // Verify file exists before showing completion
+//       if (!await file.exists()) {
+//         throw Exception('File was not saved properly');
+//       }
+//
 //       // Show completion notification
 //       if (showNotification) {
 //         await _showCompletedNotification(filename, savePath);
@@ -366,7 +336,7 @@
 //   }
 //
 //   // ---------------------------------------------------------------------------
-//   // iOS FIXED NOTIFICATIONS
+//   // NOTIFICATIONS (TAP-TO-OPEN REMOVED)
 //   // ---------------------------------------------------------------------------
 //
 //   Future<void> _showProgressNotification(
@@ -395,7 +365,6 @@
 //           ),
 //         );
 //       } else if (Platform.isIOS) {
-//         // iOS ke liye proper progress notification
 //         details = NotificationDetails(
 //           iOS: DarwinNotificationDetails(
 //             presentAlert: true,
@@ -404,7 +373,6 @@
 //             subtitle: 'Progress: $progress%',
 //             badgeNumber: progress,
 //             threadIdentifier: 'download_$_notificationCounter',
-//             // iOS 15+ interruption level
 //             interruptionLevel: InterruptionLevel.passive,
 //           ),
 //         );
@@ -413,10 +381,10 @@
 //       }
 //
 //       await _notificationsPlugin.show(
-//         _baseNotificationId,
-//         'Downloading: $filename',
-//         'Downloaded: $progress%',
-//         details,
+//         id: _baseNotificationId,
+//         title: 'Downloading: $filename',
+//         body: 'Downloaded: $progress%',
+//         notificationDetails: details,
 //       );
 //
 //       if (kDebugMode && Platform.isIOS && progress % 25 == 0) {
@@ -432,7 +400,7 @@
 //       String filePath,
 //       ) async {
 //     try {
-//       await _notificationsPlugin.cancel(_baseNotificationId);
+//       await _notificationsPlugin.cancel(id: _baseNotificationId);
 //       if (Platform.isIOS) {
 //         await Future.delayed(const Duration(milliseconds: 500));
 //       } else {
@@ -441,6 +409,7 @@
 //
 //       NotificationDetails details;
 //       _notificationCounter++;
+//
 //       if (Platform.isAndroid) {
 //         details = NotificationDetails(
 //           android: AndroidNotificationDetails(
@@ -457,17 +426,16 @@
 //             visibility: NotificationVisibility.public,
 //           ),
 //         );
-//       } else if (Platform.isIOS) {
+//       } else if (Platform.isIOS) {   // subtitle: 'Progress: $progress%',
 //         details = NotificationDetails(
 //           iOS: DarwinNotificationDetails(
-//             presentAlert: true,    // MUST be true
-//             presentBadge: true,    // MUST be true
-//             presentSound: true,    // Sound bajao
-//             subtitle: 'Tap to open file',
+//             presentAlert: true,
+//             presentBadge: true,
+//             presentSound: true,
+//             subtitle: 'File saved successfully',
 //             badgeNumber: 1,
 //             threadIdentifier: 'download_complete_$_notificationCounter',
 //             interruptionLevel: InterruptionLevel.timeSensitive,
-//             // iOS attachment for better visibility (optional)
 //             attachments: [],
 //           ),
 //         );
@@ -476,31 +444,34 @@
 //       }
 //
 //       final completionId = _baseNotificationId + 1000 + _notificationCounter;
+//
+//       // NO payload - tap-to-open removed
 //       await _notificationsPlugin.show(
-//         completionId,
-//         '✅ $filename',
-//         'Download Complete! Tap to open',
-//         details,
-//         payload: filePath,
+//         id: completionId,
+//         title: '✅ $filename',
+//         body: 'Download Complete!',
+//         notificationDetails: details,
 //       );
+//
 //
 //       if (kDebugMode) {
 //         print('✅ Completion notification shown (ID: $completionId)');
+//         print('📁 File saved at: $filePath');
 //         if (Platform.isIOS) {
 //           print('📱 iOS notification with sound and time-sensitive priority');
 //         }
 //       }
-//     } catch (e) {
+//     } catch (e, stackTrace) {
 //       if (kDebugMode) {
 //         print('❌ Completed notification error: $e');
-//         print('Stack: ${StackTrace.current}');
+//         print('Stack: $stackTrace');
 //       }
 //     }
 //   }
 //
 //   Future<void> _showErrorNotification(String filename, String error) async {
 //     try {
-//       await _notificationsPlugin.cancel(_baseNotificationId);
+//       await _notificationsPlugin.cancel(id: _baseNotificationId);
 //       await Future.delayed(Platform.isIOS
 //           ? const Duration(milliseconds: 500)
 //           : const Duration(milliseconds: 100));
@@ -542,11 +513,12 @@
 //
 //       final errorId = _baseNotificationId + 2000 + _notificationCounter;
 //       await _notificationsPlugin.show(
-//         errorId,
-//         '❌ Download Failed',
-//         filename,
-//         details,
+//         id: errorId,
+//         title: '❌ Download Failed',
+//         body: filename,
+//         notificationDetails: details,
 //       );
+//
 //
 //       if (kDebugMode) {
 //         print('❌ Error notification shown (ID: $errorId)');
