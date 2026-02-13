@@ -58,7 +58,7 @@ class FlutterAnyDownload {
       android: AndroidInitializationSettings('@mipmap/ic_launcher'),
     );
 
-    await _notificationsPlugin.initialize(initSettings);
+    await _notificationsPlugin.initialize(settings: initSettings);
   }
 
   Future<void> _initializeIOS() async {
@@ -71,7 +71,7 @@ class FlutterAnyDownload {
 
     final initSettings = InitializationSettings(iOS: iOSSettings);
 
-    final bool? initialized = await _notificationsPlugin.initialize(initSettings);
+    final bool? initialized = await _notificationsPlugin.initialize(settings: initSettings);
 
     if (kDebugMode) {
       print('✅ iOS Plugin initialized: $initialized');
@@ -381,11 +381,12 @@ class FlutterAnyDownload {
       }
 
       await _notificationsPlugin.show(
-        _baseNotificationId,
-        'Downloading: $filename',
-        'Downloaded: $progress%',
-        details,
+        id: _baseNotificationId,
+        title: 'Downloading: $filename',
+        body: 'Downloaded: $progress%',
+        notificationDetails: details,
       );
+
 
       if (kDebugMode && Platform.isIOS && progress % 25 == 0) {
         debugPrint('🔔 iOS notification shown: $progress%');
@@ -400,7 +401,7 @@ class FlutterAnyDownload {
       String filePath,
       ) async {
     try {
-      await _notificationsPlugin.cancel(_baseNotificationId);
+      await _notificationsPlugin.cancel(id: _baseNotificationId);
       if (Platform.isIOS) {
         await Future.delayed(const Duration(milliseconds: 500));
       } else {
@@ -447,11 +448,12 @@ class FlutterAnyDownload {
 
       // NO payload - tap-to-open removed
       await _notificationsPlugin.show(
-        completionId,
-        '✅ $filename',
-        'Download Complete!',
-        details,
+        id: completionId,
+        title: '✅ $filename',
+        body: 'Download Complete!',
+        notificationDetails: details,
       );
+
 
       if (kDebugMode) {
         print('✅ Completion notification shown (ID: $completionId)');
@@ -470,7 +472,7 @@ class FlutterAnyDownload {
 
   Future<void> _showErrorNotification(String filename, String error) async {
     try {
-      await _notificationsPlugin.cancel(_baseNotificationId);
+      await _notificationsPlugin.cancel(id: _baseNotificationId);
       await Future.delayed(Platform.isIOS
           ? const Duration(milliseconds: 500)
           : const Duration(milliseconds: 100));
@@ -512,11 +514,12 @@ class FlutterAnyDownload {
 
       final errorId = _baseNotificationId + 2000 + _notificationCounter;
       await _notificationsPlugin.show(
-        errorId,
-        '❌ Download Failed',
-        filename,
-        details,
+        id: errorId,
+        title: '❌ Download Failed',
+        body: filename,
+        notificationDetails: details,
       );
+
 
       if (kDebugMode) {
         print('❌ Error notification shown (ID: $errorId)');

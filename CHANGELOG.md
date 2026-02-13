@@ -10,3 +10,7 @@
 ## 1.1.5
 
 * iOS Notification issue fixed
+
+* ## 1.1.6
+
+* Minor bug fixed

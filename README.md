@@ -737,13 +737,13 @@ filename: filename,
 String? downloadedFilePath;
 
 final result = await FlutterAnyDownload.instance.download(
-url: url,
-filename: filename,
-onComplete: (filePath) {
-downloadedFilePath = filePath;
+    url: url,
+    filename: filename,
+    onComplete: (filePath) {
+d   ownloadedFilePath = filePath;
 // Now you can use it!
-},
-);
+        },
+      );
 
 // Or use result.filePath
 if (result.success) {
@@ -753,17 +753,12 @@ downloadedFilePath = result.filePath;
 
 ### Wrong - Testing on iOS Simulator
 ```
-iOS Simulator me notifications properly work nahi karte
+Notifications do not work properly in the iOS Simulator.
 ```
 
 ### Correct - Test on Real Device
 ```
 Always test on real iOS device for notifications
-```
-
-### Wrong - Not Doing Clean Build
-```
-Info.plist or AppDelegate change karne ke baad clean build nahi kiya
 ```
 
 ### Correct - Always Clean Build
@@ -780,14 +775,6 @@ cd ios && pod install && cd ..
 - File path access via callbacks and `DownloadResult`
 - iOS & Android support
 - All core download functionality
-
-## 🙏 Credits
-
-Built with:
-- [http](https://pub.dev/packages/http) - HTTP client
-- [flutter_local_notifications](https://pub.dev/packages/flutter_local_notifications) - Local notifications
-- [path_provider](https://pub.dev/packages/path_provider) - File paths
-- [permission_handler](https://pub.dev/packages/permission_handler) - Permission management
 
 If this package helped you, please give it a ⭐ on GitHub!
 ---
