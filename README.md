@@ -22,7 +22,7 @@ Add to your `pubspec.yaml`:
 
 ```yaml
 dependencies:
-   flutter_any_download: ^1.1.5
+   flutter_any_download: ^1.1.7
 
    # Required dependencies
    http: ^1.1.0

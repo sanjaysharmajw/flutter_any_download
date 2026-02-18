@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'package:device_info_plus/device_info_plus.dart';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
@@ -323,14 +324,44 @@ class FlutterAnyDownload {
     }
   }
 
+  // Future<String> _getSavePath(String filename, bool useDownloadsFolder) async {
+  //   if (Platform.isAndroid && useDownloadsFolder) {
+  //     final downloads = Directory('/storage/emulated/0/Download');
+  //     if (await downloads.exists()) {
+  //       return '${downloads.path}/$filename';
+  //     }
+  //   }
+  //
+  //   final docs = await getApplicationDocumentsDirectory();
+  //   return '${docs.path}/$filename';
+  // }
+
+
   Future<String> _getSavePath(String filename, bool useDownloadsFolder) async {
     if (Platform.isAndroid && useDownloadsFolder) {
-      final downloads = Directory('/storage/emulated/0/Download');
-      if (await downloads.exists()) {
-        return '${downloads.path}/$filename';
+      final androidInfo = await DeviceInfoPlugin().androidInfo;
+      final sdkInt = androidInfo.version.sdkInt;
+
+      if (sdkInt >= 30) {
+        // Android 11+ — use app-specific external storage (NO permission needed)
+        final dir = await getExternalStorageDirectory();
+        if (dir != null) {
+          await dir.create(recursive: true);
+          return '${dir.path}/$filename';
+        }
+      } else {
+        // Android 10 and below — request permission first
+        final status = await Permission.storage.request();
+        if (status.isGranted) {
+          final downloads = Directory('/storage/emulated/0/Download');
+          if (await downloads.exists()) {
+            return '${downloads.path}/$filename';
+          }
+        }
       }
     }
 
+    // Fallback for iOS or if all else fails
     final docs = await getApplicationDocumentsDirectory();
     return '${docs.path}/$filename';
   }
