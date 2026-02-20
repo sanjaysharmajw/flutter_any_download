@@ -19,3 +19,7 @@
 ## 1.1.7
 
 * Minor bug fixed
+
+## 1.1.8
+
+* In Android 10: PathAccessException - Cannot open file - Solved

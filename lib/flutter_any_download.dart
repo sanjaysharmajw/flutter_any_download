@@ -338,30 +338,46 @@ class FlutterAnyDownload {
 
 
   Future<String> _getSavePath(String filename, bool useDownloadsFolder) async {
-    if (Platform.isAndroid && useDownloadsFolder) {
-      final androidInfo = await DeviceInfoPlugin().androidInfo;
-      final sdkInt = androidInfo.version.sdkInt;
+    if (Platform.isAndroid) {
+      if (useDownloadsFolder) {
+        final androidInfo = await DeviceInfoPlugin().androidInfo;
+        final sdkInt = androidInfo.version.sdkInt;
 
-      if (sdkInt >= 30) {
-        // Android 11+ — use app-specific external storage (NO permission needed)
-        final dir = await getExternalStorageDirectory();
-        if (dir != null) {
-          await dir.create(recursive: true);
-          return '${dir.path}/$filename';
-        }
-      } else {
-        // Android 10 and below — request permission first
-        final status = await Permission.storage.request();
-        if (status.isGranted) {
-          final downloads = Directory('/storage/emulated/0/Download');
-          if (await downloads.exists()) {
-            return '${downloads.path}/$filename';
+        if (sdkInt >= 30) {
+          // Android 11+ — app-specific external storage, no permission needed
+          final dir = await getExternalStorageDirectory();
+          if (dir != null) {
+            await dir.create(recursive: true);
+            return '${dir.path}/$filename';
+          }
+        } else if (sdkInt >= 29) {
+          // Android 10 — scoped storage, avoid raw Download path
+          // Use app-specific external storage instead
+          final dir = await getExternalStorageDirectory();
+          if (dir != null) {
+            await dir.create(recursive: true);
+            return '${dir.path}/$filename';
+          }
+        } else {
+          // Android 9 and below — request legacy storage permission
+          final status = await Permission.storage.request();
+          if (status.isGranted) {
+            final downloads = Directory('/storage/emulated/0/Download');
+            if (await downloads.exists()) {
+              return '${downloads.path}/$filename';
+            }
           }
         }
       }
+
+      // Safe fallback: app-specific external or internal
+      final dir = await getExternalStorageDirectory() ??
+          await getApplicationDocumentsDirectory();
+      await dir.create(recursive: true);
+      return '${dir.path}/$filename';
     }
 
-    // Fallback for iOS or if all else fails
+    // iOS fallback
     final docs = await getApplicationDocumentsDirectory();
     return '${docs.path}/$filename';
   }

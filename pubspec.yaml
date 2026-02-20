@@ -1,6 +1,6 @@
 name: flutter_any_download
 description: "Simple Flutter download manager for Android & iOS with progress notifications, callbacks, cancellation, silent mode, and multiple file downloads."
-version: 1.1.7
+version: 1.1.8
 homepage: https://github.com/sanjaysharmajw/flutter_any_download
 repository: https://github.com/sanjaysharmajw/flutter_any_download
 issue_tracker: https://github.com/sanjaysharmajw/flutter_any_download/issues
