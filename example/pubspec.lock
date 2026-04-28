@@ -116,7 +116,7 @@ packages:
       path: ".."
       relative: true
     source: path
-    version: "1.1.8"
+    version: "1.1.9"
   flutter_driver:
     dependency: transitive
     description: flutter

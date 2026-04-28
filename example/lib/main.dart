@@ -76,7 +76,7 @@ class DownloadHomePage extends StatelessWidget {
                         shape: BoxShape.circle,
                         boxShadow: [
                           BoxShadow(
-                            color: const Color(0xFF6366F1)..withValues(alpha:0.3),
+                            color: const Color(0xFF6366F1).withValues(alpha:0.3),
                             blurRadius: 20,
                             offset: const Offset(0, 10),
                           ),
@@ -236,7 +236,7 @@ class _FeatureCard extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: Colors.white..withValues(alpha:0.3),
+                    color: Colors.white.withValues(alpha:0.3),
                     shape: BoxShape.circle,
                   ),
                   child: Icon(
@@ -259,7 +259,7 @@ class _FeatureCard extends StatelessWidget {
                   subtitle,
                   style: TextStyle(
                     fontSize: 12,
-                    color: Colors.white..withValues(alpha:0.9),
+                    color: Colors.white.withValues(alpha:0.9),
                   ),
                 ),
               ],
@@ -319,7 +319,7 @@ class _SimpleDownloadPageState extends State<SimpleDownloadPage> {
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
             colors: [
-              const Color(0xFF6366F1)..withValues(alpha:0.1),
+              const Color(0xFF6366F1).withValues(alpha:0.1),
               Colors.white,
             ],
           ),
@@ -346,7 +346,7 @@ class _SimpleDownloadPageState extends State<SimpleDownloadPage> {
                             decoration: BoxDecoration(
                               color: _isSuccess
                                   ? Colors.green.withValues(alpha:0.1)
-                                  : const Color(0xFF6366F1)..withValues(alpha:0.1),
+                                  : const Color(0xFF6366F1).withValues(alpha:0.1),
                               shape: BoxShape.circle,
                             ),
                             child: Icon(
@@ -479,7 +479,7 @@ class _ProgressDownloadPageState extends State<ProgressDownloadPage>
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
             colors: [
-              const Color(0xFFEC4899)..withValues(alpha:0.1),
+              const Color(0xFFEC4899).withValues(alpha:0.1),
               Colors.white,
             ],
           ),
@@ -655,7 +655,7 @@ class SilentDownloadPage extends StatelessWidget {
                     Container(
                       padding: const EdgeInsets.all(24),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF10B981)..withValues(alpha:0.1),
+                        color: const Color(0xFF10B981).withValues(alpha:0.1),
                         shape: BoxShape.circle,
                       ),
                       child: const Icon(
@@ -784,7 +784,7 @@ class _MultipleDownloadsPageState extends State<MultipleDownloadsPage> {
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
             colors: [
-              const Color(0xFFF59E0B)..withValues(alpha:0.1),
+              const Color(0xFFF59E0B).withValues(alpha:0.1),
               Colors.white,
             ],
           ),

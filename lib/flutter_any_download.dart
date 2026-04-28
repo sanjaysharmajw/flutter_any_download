@@ -24,7 +24,6 @@ class FlutterAnyDownload {
   bool _isInitialized = false;
   bool _iosPermissionGranted = false;
   static const int _baseNotificationId = 1000;
-  int _lastNotificationProgress = -1;
   int _notificationCounter = 0;
 
   // ---------------------------------------------------------------------------
@@ -201,7 +200,10 @@ class FlutterAnyDownload {
     final taskId = DateTime.now().millisecondsSinceEpoch.toString();
     final cancelToken = _CancelToken();
     _downloadTasks[taskId] = cancelToken;
-    _lastNotificationProgress = -1;
+    int lastNotificationProgress = -1;
+
+    http.Client? client;
+    IOSink? sink;
 
     try {
       // iOS permission check - MANDATORY
@@ -227,35 +229,36 @@ class FlutterAnyDownload {
         print('💾 Downloading to: $savePath');
       }
 
-      final client = http.Client();
+      client = http.Client();
       final request = http.Request('GET', Uri.parse(url));
       final response = await client.send(request);
 
       if (response.statusCode != 200) {
-        client.close();
         throw Exception('HTTP ${response.statusCode}');
       }
 
       final contentLength = response.contentLength ?? 0;
       final file = File(savePath);
-      final sink = file.openWrite();
+      sink = file.openWrite();
       int downloaded = 0;
 
       // Show initial notification
       if (showNotification) {
         await _showProgressNotification(filename, 0, 100);
-        _lastNotificationProgress = 0;
+        lastNotificationProgress = 0;
       }
 
       await for (final chunk in response.stream) {
         if (cancelToken.isCancelled) {
-          await sink.close();
-          client.close();
+          await sink!.close();
+          sink = null;
+          client!.close();
+          client = null;
           if (await file.exists()) await file.delete();
           throw Exception('Download cancelled');
         }
 
-        sink.add(chunk);
+        sink!.add(chunk);
         downloaded += chunk.length;
 
         if (contentLength > 0) {
@@ -263,12 +266,12 @@ class FlutterAnyDownload {
 
           // iOS: Update every 5% to reduce notification spam
           final shouldUpdate = Platform.isIOS
-              ? (progress % 5 == 0 && progress != _lastNotificationProgress)
-              : (progress != _lastNotificationProgress);
+              ? (progress % 5 == 0 && progress != lastNotificationProgress)
+              : (progress != lastNotificationProgress);
 
           if (showNotification && shouldUpdate) {
             await _showProgressNotification(filename, progress, 100);
-            _lastNotificationProgress = progress;
+            lastNotificationProgress = progress;
 
             if (kDebugMode && progress % 25 == 0) {
               debugPrint('📊 Progress: $progress%');
@@ -279,8 +282,10 @@ class FlutterAnyDownload {
         }
       }
 
-      await sink.close();
-      client.close();
+      await sink!.close();
+      sink = null;
+      client!.close();
+      client = null;
       _downloadTasks.remove(taskId);
 
       // File write complete
@@ -308,6 +313,8 @@ class FlutterAnyDownload {
         message: 'Download completed successfully',
       );
     } catch (e) {
+      try { await sink?.close(); } catch (_) {}
+      client?.close();
       _downloadTasks.remove(taskId);
 
       if (showNotification) {
@@ -343,16 +350,8 @@ class FlutterAnyDownload {
         final androidInfo = await DeviceInfoPlugin().androidInfo;
         final sdkInt = androidInfo.version.sdkInt;
 
-        if (sdkInt >= 30) {
-          // Android 11+ — app-specific external storage, no permission needed
-          final dir = await getExternalStorageDirectory();
-          if (dir != null) {
-            await dir.create(recursive: true);
-            return '${dir.path}/$filename';
-          }
-        } else if (sdkInt >= 29) {
-          // Android 10 — scoped storage, avoid raw Download path
-          // Use app-specific external storage instead
+        if (sdkInt >= 29) {
+          // Android 10+ — scoped storage, use app-specific external storage
           final dir = await getExternalStorageDirectory();
           if (dir != null) {
             await dir.create(recursive: true);
@@ -377,7 +376,7 @@ class FlutterAnyDownload {
       return '${dir.path}/$filename';
     }
 
-    // iOS fallback
+    // iOS
     final docs = await getApplicationDocumentsDirectory();
     return '${docs.path}/$filename';
   }
