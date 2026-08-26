@@ -36,9 +36,10 @@ A simple, production-ready download manager for Flutter with real-time progress 
 - **Progress Notifications** — Built-in notification bar with live download progress
 - **iOS & Android Support** — Fully functional notifications on both platforms
 - **Progress Callbacks** — Track download progress, completion, and errors in your UI
-- **Cancellation** — Cancel individual or all active downloads at any time
+- **Cancellation** — Cancel one specific download by id, or all active downloads at once
 - **Silent Downloads** — Download files without showing any notifications
-- **Multiple File Downloads** — Download several files sequentially or in batches
+- **Multiple File Downloads** — Built-in `downloadMultiple()` for sequential or concurrent batches, each with its own progress notification
+- **Live Download Tracking** — Inspect `activeDownloads` for a ready-made list of in-flight `DownloadTask`s
 - **iOS Foreground Notifications** — Notifications display even when the app is in the foreground
 - **File Path Access** — Get the saved file path via callbacks or `DownloadResult`
 - **Android Scoped Storage** — Handles Android 9 / 10 / 11+ storage correctly
@@ -51,7 +52,7 @@ Add to your `pubspec.yaml`:
 
 ```yaml
 dependencies:
-  flutter_any_download: ^1.1.9
+  flutter_any_download: ^1.2.0
 ```
 
 This package bundles all required dependencies internally. No additional packages are needed.
@@ -154,23 +155,63 @@ if (result.success) {
 
 ### Download Multiple Files
 
-```dart
-Future<void> downloadMultiple() async {
-  final files = [
-    {'url': 'https://example.com/file1.pdf', 'name': 'file1.pdf'},
-    {'url': 'https://example.com/file2.pdf', 'name': 'file2.pdf'},
-    {'url': 'https://example.com/file3.pdf', 'name': 'file3.pdf'},
-  ];
+Use `downloadMultiple()` instead of hand-writing a loop. Set `concurrent: true`
+to run all downloads in parallel — each one gets its own progress
+notification, so they don't overwrite each other.
 
-  for (int i = 0; i < files.length; i++) {
-    final result = await FlutterAnyDownload.instance.download(
-      url: files[i]['url']!,
-      filename: files[i]['name']!,
-      onComplete: (filePath) {
-        print('Downloaded ${i + 1}/${files.length}: $filePath');
-      },
-    );
-  }
+```dart
+final results = await FlutterAnyDownload.instance.downloadMultiple(
+  items: const [
+    DownloadItem(url: 'https://example.com/file1.pdf', filename: 'file1.pdf'),
+    DownloadItem(url: 'https://example.com/file2.pdf', filename: 'file2.pdf'),
+    DownloadItem(url: 'https://example.com/file3.pdf', filename: 'file3.pdf'),
+  ],
+  concurrent: true, // false (default) downloads one at a time
+  onProgress: (index, downloaded, total) {
+    print('File $index: $downloaded / $total bytes');
+  },
+  onItemComplete: (index, filePath) {
+    print('File $index done: $filePath');
+  },
+  onItemError: (index, error) {
+    print('File $index failed: $error');
+  },
+);
+
+final succeeded = results.where((r) => r.success).length;
+print('$succeeded / ${results.length} downloads succeeded');
+```
+
+### Cancel a Single Download
+
+`cancelAll()` stops every active download. To cancel just one, capture its
+task id via `onTaskCreated` and pass it to `cancel()`:
+
+```dart
+String? taskId;
+
+final download = FlutterAnyDownload.instance.download(
+  url: 'https://example.com/large_file.zip',
+  filename: 'archive.zip',
+  onTaskCreated: (id) => taskId = id,
+);
+
+// Later, e.g. when the user taps "Cancel":
+if (taskId != null) {
+  FlutterAnyDownload.instance.cancel(taskId!);
+}
+
+final result = await download;
+if (result.cancelled) {
+  print('User cancelled the download');
+}
+```
+
+### Inspect Active Downloads
+
+```dart
+for (final task in FlutterAnyDownload.instance.activeDownloads) {
+  print('${task.filename}: ${task.progressPercent}% (${task.status.displayName})');
 }
 ```
 
@@ -207,6 +248,8 @@ if (!granted) {
 ```dart
 await FlutterAnyDownload.instance.cancelAll();
 ```
+
+To cancel just one download, see [Cancel a Single Download](#cancel-a-single-download) above.
 
 ### Full Widget with Progress Bar
 
@@ -432,6 +475,7 @@ Future<DownloadResult> download({
   ProgressCallback? onProgress,
   SuccessCallback? onComplete,
   ErrorCallback? onError,
+  TaskCreatedCallback? onTaskCreated,
 })
 ```
 
@@ -444,6 +488,7 @@ Future<DownloadResult> download({
 | `onProgress` | `ProgressCallback?` | `null` | Called with (downloaded, total) bytes |
 | `onComplete` | `SuccessCallback?` | `null` | Called with the saved file path |
 | `onError` | `ErrorCallback?` | `null` | Called with error message |
+| `onTaskCreated` | `TaskCreatedCallback?` | `null` | Called synchronously with the task id, for use with `cancel()` |
 
 ### `downloadSilent()`
 
@@ -455,6 +500,39 @@ Future<DownloadResult> downloadSilent({
   required String filename,
   bool saveToDownloads = false,
 })
+```
+
+### `downloadMultiple()`
+
+Download several files without writing your own loop.
+
+```dart
+Future<List<DownloadResult>> downloadMultiple({
+  required List<DownloadItem> items,
+  bool showNotification = true,
+  bool saveToDownloads = true,
+  bool concurrent = false,
+  BatchProgressCallback? onProgress,
+  BatchSuccessCallback? onItemComplete,
+  BatchErrorCallback? onItemError,
+})
+```
+
+### `activeDownloads`
+
+Read-only list of `DownloadTask`s currently in flight.
+
+```dart
+List<DownloadTask> get activeDownloads
+```
+
+### `cancel()`
+
+Cancel one specific download by the task id from `onTaskCreated`. Returns
+`false` if that task is no longer active.
+
+```dart
+bool cancel(String taskId)
 ```
 
 ### `requestPermission()`
@@ -487,6 +565,12 @@ Future<void> cancelAll()
 typedef ProgressCallback = void Function(int downloaded, int total);
 typedef SuccessCallback  = void Function(String filePath);
 typedef ErrorCallback    = void Function(String error);
+typedef TaskCreatedCallback = void Function(String taskId);
+
+// Used by downloadMultiple() — the extra `index` is the item's position in `items`
+typedef BatchProgressCallback = void Function(int index, int downloaded, int total);
+typedef BatchSuccessCallback  = void Function(int index, String filePath);
+typedef BatchErrorCallback    = void Function(int index, String error);
 ```
 
 ### `DownloadResult`
@@ -496,8 +580,18 @@ class DownloadResult {
   final bool    success;   // true if download succeeded
   final String? filePath;  // absolute path to file (null on failure)
   final String  message;   // human-readable status message
+  final bool    cancelled; // true if this came from cancel()/cancelAll(), not a real error
+  final String? taskId;    // the task id, also delivered via onTaskCreated
 }
 ```
+
+### `DownloadTask` / `DownloadStatus`
+
+Returned by `activeDownloads`. `DownloadStatus` is one of `idle`,
+`downloading`, `completed`, `failed`, `cancelled`, with `displayName`,
+`isActive` and `isFinished` helpers. `DownloadTask` exposes `progressPercent`,
+`progressFraction`, `downloadedMB`, `totalMB` and `progressString` for
+building progress UI straight from `activeDownloads`.
 
 ---
 

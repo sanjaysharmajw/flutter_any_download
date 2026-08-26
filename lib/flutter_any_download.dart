@@ -7,8 +7,12 @@ import 'package:path_provider/path_provider.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:permission_handler/permission_handler.dart';
 
+import 'src/download_item.dart';
+import 'src/download_task.dart';
+
 export 'src/download_status.dart';
 export 'src/download_task.dart';
+export 'src/download_item.dart';
 
 /// Simple, easy-to-use download manager for Flutter (iOS & Android)
 /// With iOS notification support (tap-to-open removed)
@@ -18,13 +22,13 @@ class FlutterAnyDownload {
   FlutterAnyDownload._internal();
 
   final FlutterLocalNotificationsPlugin _notificationsPlugin =
-  FlutterLocalNotificationsPlugin();
+      FlutterLocalNotificationsPlugin();
 
-  final Map<String, _CancelToken> _downloadTasks = {};
+  final Map<String, _ActiveDownload> _activeDownloads = {};
   bool _isInitialized = false;
   bool _iosPermissionGranted = false;
   static const int _baseNotificationId = 1000;
-  int _notificationCounter = 0;
+  int _taskCounter = 0;
 
   // ---------------------------------------------------------------------------
   // INITIALIZATION - iOS Fixed
@@ -63,7 +67,8 @@ class FlutterAnyDownload {
 
   Future<void> _initializeIOS() async {
     await _requestIOSPermissions();
-    final DarwinInitializationSettings iOSSettings = DarwinInitializationSettings(
+    final DarwinInitializationSettings iOSSettings =
+        DarwinInitializationSettings(
       requestAlertPermission: true,
       requestBadgePermission: true,
       requestSoundPermission: true,
@@ -71,7 +76,8 @@ class FlutterAnyDownload {
 
     final initSettings = InitializationSettings(iOS: iOSSettings);
 
-    final bool? initialized = await _notificationsPlugin.initialize(settings: initSettings);
+    final bool? initialized =
+        await _notificationsPlugin.initialize(settings: initSettings);
 
     if (kDebugMode) {
       print('✅ iOS Plugin initialized: $initialized');
@@ -82,14 +88,14 @@ class FlutterAnyDownload {
   Future<bool> _requestIOSPermissions() async {
     try {
       final iosPlugin = _notificationsPlugin
-          .resolvePlatformSpecificImplementation<IOSFlutterLocalNotificationsPlugin>();
+          .resolvePlatformSpecificImplementation<
+              IOSFlutterLocalNotificationsPlugin>();
 
       if (iosPlugin == null) {
         if (kDebugMode) print('❌ iOS plugin not available');
         return false;
       }
 
-      // Request permissions
       final granted = await iosPlugin.requestPermissions(
         alert: true,
         badge: true,
@@ -99,7 +105,8 @@ class FlutterAnyDownload {
       _iosPermissionGranted = granted ?? false;
 
       if (kDebugMode) {
-        print('🔔 iOS notification permission: ${_iosPermissionGranted ? "✅ GRANTED" : "❌ DENIED"}');
+        print(
+            '🔔 iOS notification permission: ${_iosPermissionGranted ? "✅ GRANTED" : "❌ DENIED"}');
       }
 
       return _iosPermissionGranted;
@@ -113,7 +120,18 @@ class FlutterAnyDownload {
   // PUBLIC API
   // ---------------------------------------------------------------------------
 
-  /// Download a file with progress notifications
+  /// Downloads currently in progress (or awaiting their first progress update).
+  ///
+  /// Useful for rendering a "multiple downloads" screen without tracking
+  /// task state yourself.
+  List<DownloadTask> get activeDownloads =>
+      _activeDownloads.values.map((d) => d.task).toList(growable: false);
+
+  /// Download a file with progress notifications.
+  ///
+  /// Pass [onTaskCreated] if you need to [cancel] this specific download
+  /// later — it fires synchronously (before any bytes are downloaded) with
+  /// the task id to use.
   Future<DownloadResult> download({
     required String url,
     required String filename,
@@ -122,88 +140,19 @@ class FlutterAnyDownload {
     ProgressCallback? onProgress,
     SuccessCallback? onComplete,
     ErrorCallback? onError,
-  }) async {
-    return downloadFile(
-      url: url,
-      filename: filename,
-      saveToDownloadsFolder: saveToDownloads,
-      showNotification: showNotification,
-      onProgress: onProgress,
-      onComplete: onComplete,
-      onError: onError,
-    );
-  }
-
-  /// Quick download without notifications
-  Future<DownloadResult> downloadSilent({
-    required String url,
-    required String filename,
-    bool saveToDownloads = false,
-  }) async {
-    return download(
-      url: url,
-      filename: filename,
-      showNotification: false,
-      saveToDownloads: saveToDownloads,
-    );
-  }
-
-  /// Request notification permission
-  Future<bool> requestPermission() async {
-    return requestNotificationPermission();
-  }
-
-  /// Cancel all active downloads
-  Future<void> cancelAll() async {
-    return cancelAllDownloads();
-  }
-
-  /// Check if notifications are enabled
-  Future<bool> areNotificationsEnabled() async {
-    if (Platform.isAndroid) {
-      return await Permission.notification.isGranted;
-    } else if (Platform.isIOS) {
-      return _iosPermissionGranted;
-    }
-    return true;
-  }
-
-  // ---------------------------------------------------------------------------
-  // INTERNAL IMPLEMENTATION
-  // ---------------------------------------------------------------------------
-
-  Future<bool> requestNotificationPermission() async {
-    if (Platform.isAndroid) {
-      try {
-        final status = await Permission.notification.request();
-        return status.isGranted;
-      } catch (e) {
-        return true;
-      }
-    } else if (Platform.isIOS) {
-      return await _requestIOSPermissions();
-    }
-    return true;
-  }
-
-  Future<DownloadResult> downloadFile({
-    required String url,
-    required String filename,
-    bool saveToDownloadsFolder = true,
-    bool showNotification = true,
-    ProgressCallback? onProgress,
-    SuccessCallback? onComplete,
-    ErrorCallback? onError,
+    TaskCreatedCallback? onTaskCreated,
   }) async {
     if (!_isInitialized) await initialize();
 
-    final taskId = DateTime.now().millisecondsSinceEpoch.toString();
+    final slot = _taskCounter++;
+    final taskId = '${DateTime.now().microsecondsSinceEpoch}_$slot';
+    final notificationBase = _baseNotificationId + (slot * 10);
     final cancelToken = _CancelToken();
-    _downloadTasks[taskId] = cancelToken;
-    int lastNotificationProgress = -1;
 
     http.Client? client;
     IOSink? sink;
+    DownloadTask? task;
+    int lastNotificationProgress = -1;
 
     try {
       // iOS permission check - MANDATORY
@@ -223,10 +172,23 @@ class FlutterAnyDownload {
         }
       }
 
-      final savePath = await _getSavePath(filename, saveToDownloadsFolder);
+      final savePath = await _getSavePath(filename, saveToDownloads);
 
       if (kDebugMode) {
         print('💾 Downloading to: $savePath');
+      }
+
+      task = DownloadTask(
+        id: taskId,
+        url: url,
+        filename: filename,
+        savePath: savePath,
+      );
+      _activeDownloads[taskId] = _ActiveDownload(task, cancelToken);
+      onTaskCreated?.call(taskId);
+
+      if (cancelToken.isCancelled) {
+        throw const _DownloadCancelledException();
       }
 
       client = http.Client();
@@ -242,26 +204,21 @@ class FlutterAnyDownload {
       sink = file.openWrite();
       int downloaded = 0;
 
-      // Show initial notification
       if (showNotification) {
-        await _showProgressNotification(filename, 0, 100);
+        await _showProgressNotification(notificationBase, filename, 0, 100);
         lastNotificationProgress = 0;
       }
 
       await for (final chunk in response.stream) {
         if (cancelToken.isCancelled) {
-          await sink!.close();
-          sink = null;
-          client!.close();
-          client = null;
-          if (await file.exists()) await file.delete();
-          throw Exception('Download cancelled');
+          throw const _DownloadCancelledException();
         }
 
-        sink!.add(chunk);
+        sink.add(chunk);
         downloaded += chunk.length;
 
         if (contentLength > 0) {
+          task.updateProgress(downloaded, contentLength);
           final progress = ((downloaded / contentLength) * 100).toInt();
 
           // iOS: Update every 5% to reduce notification spam
@@ -270,7 +227,8 @@ class FlutterAnyDownload {
               : (progress != lastNotificationProgress);
 
           if (showNotification && shouldUpdate) {
-            await _showProgressNotification(filename, progress, 100);
+            await _showProgressNotification(
+                notificationBase, filename, progress, 100);
             lastNotificationProgress = progress;
 
             if (kDebugMode && progress % 25 == 0) {
@@ -282,23 +240,22 @@ class FlutterAnyDownload {
         }
       }
 
-      await sink!.close();
+      await sink.close();
       sink = null;
-      client!.close();
+      client.close();
       client = null;
-      _downloadTasks.remove(taskId);
 
       // File write complete
       await Future.delayed(const Duration(milliseconds: 300));
 
-      // Verify file exists before showing completion
       if (!await file.exists()) {
         throw Exception('File was not saved properly');
       }
 
-      // Show completion notification
+      task.complete();
+
       if (showNotification) {
-        await _showCompletedNotification(filename, savePath);
+        await _showCompletedNotification(notificationBase, filename, savePath);
 
         if (kDebugMode) {
           print('✅ Download complete + notification shown');
@@ -311,14 +268,40 @@ class FlutterAnyDownload {
         success: true,
         filePath: savePath,
         message: 'Download completed successfully',
+        taskId: taskId,
       );
-    } catch (e) {
-      try { await sink?.close(); } catch (_) {}
+    } on _DownloadCancelledException {
+      try {
+        await sink?.close();
+      } catch (_) {}
       client?.close();
-      _downloadTasks.remove(taskId);
+      task?.cancel();
+
+      if (task != null) {
+        final file = File(task.savePath);
+        if (await file.exists()) await file.delete();
+      }
 
       if (showNotification) {
-        await _showErrorNotification(filename, e.toString());
+        await _notificationsPlugin.cancel(id: notificationBase);
+      }
+
+      return DownloadResult(
+        success: false,
+        filePath: null,
+        message: 'Download cancelled',
+        cancelled: true,
+        taskId: taskId,
+      );
+    } catch (e) {
+      try {
+        await sink?.close();
+      } catch (_) {}
+      client?.close();
+      task?.fail(e.toString());
+
+      if (showNotification) {
+        await _showErrorNotification(notificationBase, filename, e.toString());
       }
 
       onError?.call(e.toString());
@@ -327,22 +310,113 @@ class FlutterAnyDownload {
         success: false,
         filePath: null,
         message: 'Download failed: $e',
+        taskId: taskId,
       );
+    } finally {
+      _activeDownloads.remove(taskId);
     }
   }
 
-  // Future<String> _getSavePath(String filename, bool useDownloadsFolder) async {
-  //   if (Platform.isAndroid && useDownloadsFolder) {
-  //     final downloads = Directory('/storage/emulated/0/Download');
-  //     if (await downloads.exists()) {
-  //       return '${downloads.path}/$filename';
-  //     }
-  //   }
-  //
-  //   final docs = await getApplicationDocumentsDirectory();
-  //   return '${docs.path}/$filename';
-  // }
+  /// Quick download without notifications
+  Future<DownloadResult> downloadSilent({
+    required String url,
+    required String filename,
+    bool saveToDownloads = false,
+  }) async {
+    return download(
+      url: url,
+      filename: filename,
+      showNotification: false,
+      saveToDownloads: saveToDownloads,
+    );
+  }
 
+  /// Download several files in one call instead of hand-writing a loop.
+  ///
+  /// Set [concurrent] to `true` to run all downloads in parallel (each gets
+  /// its own progress notification); otherwise they run one after another.
+  /// [onProgress], [onItemComplete] and [onItemError] are called with the
+  /// index of the item in [items] so you can update per-item UI state.
+  Future<List<DownloadResult>> downloadMultiple({
+    required List<DownloadItem> items,
+    bool showNotification = true,
+    bool saveToDownloads = true,
+    bool concurrent = false,
+    BatchProgressCallback? onProgress,
+    BatchSuccessCallback? onItemComplete,
+    BatchErrorCallback? onItemError,
+  }) async {
+    Future<DownloadResult> downloadAt(int index) {
+      final item = items[index];
+      return download(
+        url: item.url,
+        filename: item.filename,
+        showNotification: showNotification,
+        saveToDownloads: saveToDownloads,
+        onProgress: (downloaded, total) =>
+            onProgress?.call(index, downloaded, total),
+        onComplete: (filePath) => onItemComplete?.call(index, filePath),
+        onError: (error) => onItemError?.call(index, error),
+      );
+    }
+
+    if (concurrent) {
+      return Future.wait(List.generate(items.length, downloadAt));
+    }
+
+    final results = <DownloadResult>[];
+    for (var i = 0; i < items.length; i++) {
+      results.add(await downloadAt(i));
+    }
+    return results;
+  }
+
+  /// Request notification permission (required for iOS; Android 13+).
+  Future<bool> requestPermission() async {
+    if (Platform.isAndroid) {
+      try {
+        final status = await Permission.notification.request();
+        return status.isGranted;
+      } catch (e) {
+        return true;
+      }
+    } else if (Platform.isIOS) {
+      return await _requestIOSPermissions();
+    }
+    return true;
+  }
+
+  /// Check if notifications are enabled
+  Future<bool> areNotificationsEnabled() async {
+    if (Platform.isAndroid) {
+      return await Permission.notification.isGranted;
+    } else if (Platform.isIOS) {
+      return _iosPermissionGranted;
+    }
+    return true;
+  }
+
+  /// Cancel a single in-flight download by the id passed to [onTaskCreated].
+  /// Returns `false` if no matching active download was found (e.g. it
+  /// already finished).
+  bool cancel(String taskId) {
+    final active = _activeDownloads[taskId];
+    if (active == null) return false;
+    active.cancelToken.cancel();
+    return true;
+  }
+
+  /// Cancel all active downloads
+  Future<void> cancelAll() async {
+    for (final active in _activeDownloads.values) {
+      active.cancelToken.cancel();
+    }
+    await _notificationsPlugin.cancelAll();
+  }
+
+  // ---------------------------------------------------------------------------
+  // INTERNAL IMPLEMENTATION
+  // ---------------------------------------------------------------------------
 
   Future<String> _getSavePath(String filename, bool useDownloadsFolder) async {
     if (Platform.isAndroid) {
@@ -384,12 +458,17 @@ class FlutterAnyDownload {
   // ---------------------------------------------------------------------------
   // NOTIFICATIONS (TAP-TO-OPEN REMOVED)
   // ---------------------------------------------------------------------------
+  //
+  // Each download gets its own notification id range (base, base+1, base+2)
+  // so that concurrent downloads (see downloadMultiple) show independent
+  // progress bars instead of overwriting one another.
 
   Future<void> _showProgressNotification(
-      String filename,
-      int progress,
-      int maxProgress,
-      ) async {
+    int notificationId,
+    String filename,
+    int progress,
+    int maxProgress,
+  ) async {
     try {
       NotificationDetails details;
 
@@ -418,7 +497,7 @@ class FlutterAnyDownload {
             presentSound: false,
             subtitle: 'Progress: $progress%',
             badgeNumber: progress,
-            threadIdentifier: 'download_$_notificationCounter',
+            threadIdentifier: 'download_$notificationId',
             interruptionLevel: InterruptionLevel.passive,
           ),
         );
@@ -427,7 +506,7 @@ class FlutterAnyDownload {
       }
 
       await _notificationsPlugin.show(
-        id: _baseNotificationId,
+        id: notificationId,
         title: 'Downloading: $filename',
         body: 'Downloaded: $progress%',
         notificationDetails: details,
@@ -442,11 +521,12 @@ class FlutterAnyDownload {
   }
 
   Future<void> _showCompletedNotification(
-      String filename,
-      String filePath,
-      ) async {
+    int notificationBase,
+    String filename,
+    String filePath,
+  ) async {
     try {
-      await _notificationsPlugin.cancel(id: _baseNotificationId);
+      await _notificationsPlugin.cancel(id: notificationBase);
       if (Platform.isIOS) {
         await Future.delayed(const Duration(milliseconds: 500));
       } else {
@@ -454,7 +534,6 @@ class FlutterAnyDownload {
       }
 
       NotificationDetails details;
-      _notificationCounter++;
 
       if (Platform.isAndroid) {
         details = NotificationDetails(
@@ -472,7 +551,7 @@ class FlutterAnyDownload {
             visibility: NotificationVisibility.public,
           ),
         );
-      } else if (Platform.isIOS) {   // subtitle: 'Progress: $progress%',
+      } else if (Platform.isIOS) {
         details = NotificationDetails(
           iOS: DarwinNotificationDetails(
             presentAlert: true,
@@ -480,7 +559,7 @@ class FlutterAnyDownload {
             presentSound: true,
             subtitle: 'File saved successfully',
             badgeNumber: 1,
-            threadIdentifier: 'download_complete_$_notificationCounter',
+            threadIdentifier: 'download_complete_$notificationBase',
             interruptionLevel: InterruptionLevel.timeSensitive,
             attachments: [],
           ),
@@ -489,7 +568,7 @@ class FlutterAnyDownload {
         return;
       }
 
-      final completionId = _baseNotificationId + 1000 + _notificationCounter;
+      final completionId = notificationBase + 1;
 
       // NO payload - tap-to-open removed
       await _notificationsPlugin.show(
@@ -498,7 +577,6 @@ class FlutterAnyDownload {
         body: 'Download Complete!',
         notificationDetails: details,
       );
-
 
       if (kDebugMode) {
         print('✅ Completion notification shown (ID: $completionId)');
@@ -515,15 +593,18 @@ class FlutterAnyDownload {
     }
   }
 
-  Future<void> _showErrorNotification(String filename, String error) async {
+  Future<void> _showErrorNotification(
+    int notificationBase,
+    String filename,
+    String error,
+  ) async {
     try {
-      await _notificationsPlugin.cancel(id: _baseNotificationId);
+      await _notificationsPlugin.cancel(id: notificationBase);
       await Future.delayed(Platform.isIOS
           ? const Duration(milliseconds: 500)
           : const Duration(milliseconds: 100));
 
       NotificationDetails details;
-      _notificationCounter++;
 
       if (Platform.isAndroid) {
         details = NotificationDetails(
@@ -549,7 +630,7 @@ class FlutterAnyDownload {
             presentSound: true,
             subtitle: error.length > 50 ? '${error.substring(0, 50)}...' : error,
             badgeNumber: 1,
-            threadIdentifier: 'download_error_$_notificationCounter',
+            threadIdentifier: 'download_error_$notificationBase',
             interruptionLevel: InterruptionLevel.timeSensitive,
           ),
         );
@@ -557,7 +638,7 @@ class FlutterAnyDownload {
         return;
       }
 
-      final errorId = _baseNotificationId + 2000 + _notificationCounter;
+      final errorId = notificationBase + 2;
       await _notificationsPlugin.show(
         id: errorId,
         title: '❌ Download Failed',
@@ -565,21 +646,12 @@ class FlutterAnyDownload {
         notificationDetails: details,
       );
 
-
       if (kDebugMode) {
         print('❌ Error notification shown (ID: $errorId)');
       }
     } catch (e) {
       if (kDebugMode) print('❌ Error notification error: $e');
     }
-  }
-
-  Future<void> cancelAllDownloads() async {
-    for (final token in _downloadTasks.values) {
-      token.cancel();
-    }
-    _downloadTasks.clear();
-    await _notificationsPlugin.cancelAll();
   }
 }
 
@@ -590,6 +662,12 @@ class FlutterAnyDownload {
 typedef ProgressCallback = void Function(int downloaded, int total);
 typedef SuccessCallback = void Function(String filePath);
 typedef ErrorCallback = void Function(String error);
+typedef TaskCreatedCallback = void Function(String taskId);
+
+typedef BatchProgressCallback = void Function(
+    int index, int downloaded, int total);
+typedef BatchSuccessCallback = void Function(int index, String filePath);
+typedef BatchErrorCallback = void Function(int index, String error);
 
 // ---------------------------------------------------------------------------
 // Supporting Classes
@@ -601,17 +679,40 @@ class _CancelToken {
   void cancel() => _isCancelled = true;
 }
 
+class _ActiveDownload {
+  final DownloadTask task;
+  final _CancelToken cancelToken;
+  _ActiveDownload(this.task, this.cancelToken);
+}
+
+class _DownloadCancelledException implements Exception {
+  const _DownloadCancelledException();
+  @override
+  String toString() => 'Download cancelled';
+}
+
 class DownloadResult {
   final bool success;
   final String? filePath;
   final String message;
 
+  /// `true` if this result comes from a user-initiated [FlutterAnyDownload.cancel]
+  /// rather than an actual failure.
+  final bool cancelled;
+
+  /// The id of the underlying download task (also delivered synchronously
+  /// via `onTaskCreated`, if you passed one).
+  final String? taskId;
+
   DownloadResult({
     required this.success,
     required this.filePath,
     required this.message,
+    this.cancelled = false,
+    this.taskId,
   });
 
   @override
-  String toString() => 'DownloadResult(success: $success, path: $filePath, message: $message)';
+  String toString() =>
+      'DownloadResult(success: $success, path: $filePath, cancelled: $cancelled, message: $message)';
 }
